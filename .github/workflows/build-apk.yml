@@ -5,6 +5,9 @@ on:
     branches: [ main, master ]
   workflow_dispatch:
 
+permissions:
+  contents: write
+
 jobs:
   build:
     runs-on: ubuntu-latest
@@ -20,11 +23,23 @@ jobs:
           distribution: 'temurin'
           cache: gradle
 
+      - name: Restore or Generate Debug Keystore
+        run: |
+          if [ -f "debug.keystore.base64" ]; then
+            echo "Decoding debug.keystore from base64..."
+            base64 -d debug.keystore.base64 > debug.keystore
+          fi
+          if [ ! -f "debug.keystore" ]; then
+            echo "Generating debug.keystore with keytool..."
+            keytool -genkey -v -keystore debug.keystore -storepass android -alias androiddebugkey -keypass android -keyalg RSA -keysize 2048 -validity 10000 -dname "CN=Android Debug,O=Android,C=US"
+          fi
+          ls -la debug.keystore
+
       - name: Grant execute permission for gradlew
-        run: chmod +x gradlew || true
+        run: chmod +x gradlew
 
       - name: Build Debug APK
-        run: gradle assembleDebug || ./gradlew assembleDebug
+        run: ./gradlew assembleDebug --no-daemon
 
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
@@ -32,12 +47,12 @@ jobs:
           name: GymTracker-debug-apk
           path: app/build/outputs/apk/debug/*.apk
 
-      - name: Create Release with APK
+      - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
-        if: startsWith(github.ref, 'refs/tags/') || github.ref == 'refs/heads/main'
         with:
-          tag_name: v1.0.0
-          name: Gym Tracker APK Release
+          tag_name: latest-build
+          name: Gym Tracker Latest APK
+          body: "Direct download for Gym Tracker Android APK built by GitHub Actions."
           files: app/build/outputs/apk/debug/*.apk
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
