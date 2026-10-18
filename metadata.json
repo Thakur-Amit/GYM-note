@@ -1,0 +1,6 @@
+{
+  "name": "Gym Tracker",
+  "description": "Offline-first personal gym journal, workout logging, exercise images, progress analytics, and body weight tracking.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}
