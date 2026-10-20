@@ -15,6 +15,8 @@ data class UserProfile(
     val dateOfBirth: Long? = null, // Epoch millis
     val heightCm: Double? = 175.0,
     val preferredWeightUnit: String = "kg",
+    val gender: String = "male", // "male" or "female" for U.S. Navy formula
+    val measurementReminderWeeks: Int = 2,
     val fitnessJourneyStartDate: Long? = System.currentTimeMillis(),
     val fitnessGoal: String? = "Build Strength & Lean Muscle",
     val personalNotes: String? = null
@@ -88,6 +90,54 @@ data class BodyWeightEntry(
 }
 
 @Entity(
+    tableName = "body_measurement_entries",
+    indices = [Index(value = ["measuredAt"])]
+)
+data class BodyMeasurementEntry(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val measuredAt: Long = System.currentTimeMillis(),
+    val waistCm: Double? = null,
+    val neckCm: Double? = null,
+    val hipsCm: Double? = null,
+    val chestCm: Double? = null,
+    val shouldersCm: Double? = null,
+    val leftArmCm: Double? = null,
+    val rightArmCm: Double? = null,
+    val leftForearmCm: Double? = null,
+    val rightForearmCm: Double? = null,
+    val leftThighCm: Double? = null,
+    val rightThighCm: Double? = null,
+    val leftCalfCm: Double? = null,
+    val rightCalfCm: Double? = null,
+    val unit: String = "cm",
+    val notes: String? = null,
+    val createdAt: Long = System.currentTimeMillis(),
+    val updatedAt: Long = System.currentTimeMillis()
+)
+
+@Entity(
+    tableName = "body_composition_snapshots",
+    indices = [Index(value = ["measuredAt"])]
+)
+data class BodyCompositionSnapshot(
+    @PrimaryKey(autoGenerate = true) val id: Long = 0,
+    val measuredAt: Long = System.currentTimeMillis(),
+    val weightKgSnapshot: Double,
+    val heightCmSnapshot: Double,
+    val formulaInputSex: String = "male",
+    val waistCmSnapshot: Double? = null,
+    val neckCmSnapshot: Double? = null,
+    val hipsCmSnapshot: Double? = null,
+    val bmiValue: Double,
+    val bodyFatPercentEstimate: Double? = null,
+    val fatFreeMassKgEstimate: Double? = null,
+    val formulaName: String = "U.S. Navy Circumference",
+    val formulaVersion: String = "1.0",
+    val notes: String? = null,
+    val createdAt: Long = System.currentTimeMillis()
+)
+
+@Entity(
     tableName = "exercises",
     indices = [Index(value = ["primaryMuscleGroup"]), Index(value = ["isArchived"])]
 )
@@ -112,6 +162,7 @@ data class WorkoutTemplate(
     @PrimaryKey val id: String,
     val name: String,
     val description: String? = null,
+    val dayOfWeek: String? = null,
     val isCustom: Boolean = false,
     val isArchived: Boolean = false,
     val orderIndex: Int = 0,
@@ -223,3 +274,11 @@ data class WorkoutSet(
             return if (r == 1) w else w * (1.0 + r / 30.0)
         }
 }
+
+data class QuickSetInput(
+    val setNumber: Int,
+    val weight: Double?,
+    val reps: Int?,
+    val weightUnit: String = "kg",
+    val isCompleted: Boolean = true
+)

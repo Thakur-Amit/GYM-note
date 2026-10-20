@@ -1,6 +1,7 @@
 package com.example.data.backup
 
 import com.example.data.local.AppDatabase
+import com.example.data.model.BodyMeasurementEntry
 import com.example.data.model.BodyWeightEntry
 import com.example.data.model.Exercise
 import com.example.data.model.ScheduleDay
@@ -60,6 +61,33 @@ class BackupManager(private val database: AppDatabase) {
             weightArray.put(wObj)
         }
         root.put("bodyWeight", weightArray)
+
+        // 2b. Body Measurement Entries
+        val measurementArray = JSONArray()
+        val allMeasurements = database.bodyMeasurementDao().getAllEntriesSync()
+        for (m in allMeasurements) {
+            val mObj = JSONObject().apply {
+                put("id", m.id)
+                put("measuredAt", m.measuredAt)
+                if (m.waistCm != null) put("waistCm", m.waistCm)
+                if (m.neckCm != null) put("neckCm", m.neckCm)
+                if (m.hipsCm != null) put("hipsCm", m.hipsCm)
+                if (m.chestCm != null) put("chestCm", m.chestCm)
+                if (m.shouldersCm != null) put("shouldersCm", m.shouldersCm)
+                if (m.leftArmCm != null) put("leftArmCm", m.leftArmCm)
+                if (m.rightArmCm != null) put("rightArmCm", m.rightArmCm)
+                if (m.leftForearmCm != null) put("leftForearmCm", m.leftForearmCm)
+                if (m.rightForearmCm != null) put("rightForearmCm", m.rightForearmCm)
+                if (m.leftThighCm != null) put("leftThighCm", m.leftThighCm)
+                if (m.rightThighCm != null) put("rightThighCm", m.rightThighCm)
+                if (m.leftCalfCm != null) put("leftCalfCm", m.leftCalfCm)
+                if (m.rightCalfCm != null) put("rightCalfCm", m.rightCalfCm)
+                put("unit", m.unit)
+                put("notes", m.notes ?: "")
+            }
+            measurementArray.put(mObj)
+        }
+        root.put("bodyMeasurements", measurementArray)
 
         // 3. Exercises
         val exercises = database.exerciseDao().getExerciseByIdSync("barbell_bench_press")
@@ -162,6 +190,30 @@ class BackupManager(private val database: AppDatabase) {
         sb.toString()
     }
 
+    suspend fun exportBodyMeasurementsToCsv(): String = withContext(Dispatchers.IO) {
+        val sb = StringBuilder()
+        sb.append("Date,Waist (cm),Neck (cm),Hips (cm),Chest (cm),Shoulders (cm),Left Arm (cm),Right Arm (cm),Left Forearm (cm),Right Forearm (cm),Left Thigh (cm),Right Thigh (cm),Left Calf (cm),Right Calf (cm),Notes\n")
+        val allMeasurements = database.bodyMeasurementDao().getAllEntriesSync()
+        for (m in allMeasurements) {
+            sb.append("\"${dateFormat.format(Date(m.measuredAt))}\",")
+            sb.append("${m.waistCm ?: ""},")
+            sb.append("${m.neckCm ?: ""},")
+            sb.append("${m.hipsCm ?: ""},")
+            sb.append("${m.chestCm ?: ""},")
+            sb.append("${m.shouldersCm ?: ""},")
+            sb.append("${m.leftArmCm ?: ""},")
+            sb.append("${m.rightArmCm ?: ""},")
+            sb.append("${m.leftForearmCm ?: ""},")
+            sb.append("${m.rightForearmCm ?: ""},")
+            sb.append("${m.leftThighCm ?: ""},")
+            sb.append("${m.rightThighCm ?: ""},")
+            sb.append("${m.leftCalfCm ?: ""},")
+            sb.append("${m.rightCalfCm ?: ""},")
+            sb.append("\"${m.notes ?: ""}\"\n")
+        }
+        sb.toString()
+    }
+
     suspend fun restoreFromJson(jsonString: String): Result<String> = withContext(Dispatchers.IO) {
         try {
             val root = JSONObject(jsonString)
@@ -199,6 +251,34 @@ class BackupManager(private val database: AppDatabase) {
                         notes = if (wObj.has("notes") && wObj.getString("notes").isNotEmpty()) wObj.getString("notes") else null
                     )
                     database.bodyWeightDao().insert(entry)
+                }
+            }
+
+            // Restore Body Measurements
+            if (root.has("bodyMeasurements")) {
+                val bmArray = root.getJSONArray("bodyMeasurements")
+                for (i in 0 until bmArray.length()) {
+                    val mObj = bmArray.getJSONObject(i)
+                    val entry = BodyMeasurementEntry(
+                        id = mObj.optLong("id", 0L),
+                        measuredAt = mObj.optLong("measuredAt", System.currentTimeMillis()),
+                        waistCm = if (mObj.has("waistCm")) mObj.getDouble("waistCm") else null,
+                        neckCm = if (mObj.has("neckCm")) mObj.getDouble("neckCm") else null,
+                        hipsCm = if (mObj.has("hipsCm")) mObj.getDouble("hipsCm") else null,
+                        chestCm = if (mObj.has("chestCm")) mObj.getDouble("chestCm") else null,
+                        shouldersCm = if (mObj.has("shouldersCm")) mObj.getDouble("shouldersCm") else null,
+                        leftArmCm = if (mObj.has("leftArmCm")) mObj.getDouble("leftArmCm") else null,
+                        rightArmCm = if (mObj.has("rightArmCm")) mObj.getDouble("rightArmCm") else null,
+                        leftForearmCm = if (mObj.has("leftForearmCm")) mObj.getDouble("leftForearmCm") else null,
+                        rightForearmCm = if (mObj.has("rightForearmCm")) mObj.getDouble("rightForearmCm") else null,
+                        leftThighCm = if (mObj.has("leftThighCm")) mObj.getDouble("leftThighCm") else null,
+                        rightThighCm = if (mObj.has("rightThighCm")) mObj.getDouble("rightThighCm") else null,
+                        leftCalfCm = if (mObj.has("leftCalfCm")) mObj.getDouble("leftCalfCm") else null,
+                        rightCalfCm = if (mObj.has("rightCalfCm")) mObj.getDouble("rightCalfCm") else null,
+                        unit = mObj.optString("unit", "cm"),
+                        notes = if (mObj.has("notes") && mObj.getString("notes").isNotEmpty()) mObj.getString("notes") else null
+                    )
+                    database.bodyMeasurementDao().insert(entry)
                 }
             }
 

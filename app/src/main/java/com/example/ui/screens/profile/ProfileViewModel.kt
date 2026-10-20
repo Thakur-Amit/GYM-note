@@ -18,6 +18,7 @@ data class ProfileUiState(
     val exportJsonString: String? = null,
     val exportWorkoutsCsvString: String? = null,
     val exportWeightCsvString: String? = null,
+    val exportMeasurementsCsvString: String? = null,
     val restoreMessage: String? = null,
     val restoreError: String? = null
 )
@@ -77,6 +78,11 @@ class ProfileViewModel(
         saveProfile(updated)
     }
 
+    fun updateMeasurementReminderWeeks(weeks: Int) {
+        val updated = _uiState.value.profile.copy(measurementReminderWeeks = weeks.coerceIn(1, 4))
+        saveProfile(updated)
+    }
+
     fun setProfilePicture(uri: Uri) {
         viewModelScope.launch {
             repository.setProfilePicture(uri)
@@ -114,6 +120,13 @@ class ProfileViewModel(
         viewModelScope.launch {
             val csv = backupManager.exportBodyWeightToCsv()
             _uiState.value = _uiState.value.copy(exportWeightCsvString = csv)
+        }
+    }
+
+    fun generateMeasurementsCsv() {
+        viewModelScope.launch {
+            val csv = backupManager.exportBodyMeasurementsToCsv()
+            _uiState.value = _uiState.value.copy(exportMeasurementsCsvString = csv)
         }
     }
 

@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Archive
 import androidx.compose.material.icons.filled.Check
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
 import androidx.compose.material.icons.filled.History
@@ -61,18 +62,24 @@ import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.lifecycle.compose.collectAsStateWithLifecycle
 import com.example.data.model.ExercisePerformanceRecord
+import com.example.data.model.QuickSetInput
 import com.example.ui.components.ConfirmationDialog
 import com.example.ui.components.EmptyState
 import com.example.ui.components.ExerciseImage
+import com.example.ui.components.ExerciseProgressChart
+import com.example.ui.components.ExerciseSessionPoint
 import com.example.ui.components.GymCard
 import com.example.ui.components.GymGradientButton
 import com.example.ui.components.GymSecondaryButton
+import com.example.util.BodyMath
+import com.example.ui.theme.AccentError
 import com.example.ui.theme.AccentSuccess
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.DividerDark
 import com.example.ui.theme.ElevatedSurface
 import com.example.ui.theme.MutedText
 import com.example.ui.theme.NeonAmber
+import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonEmerald
 import com.example.ui.theme.PrimaryCard
 import com.example.ui.theme.PrimaryPurple
@@ -86,9 +93,9 @@ import kotlin.math.roundToInt
 
 data class QuickSetRowState(
     val setNumber: Int,
-    var weight: String,
-    var reps: String,
-    var isDone: Boolean = true
+    var weight: String = "",
+    var reps: String = "",
+    var isDone: Boolean = false
 )
 
 @OptIn(ExperimentalMaterial3Api::class)
@@ -96,6 +103,8 @@ data class QuickSetRowState(
 fun ExerciseDetailScreen(
     exerciseId: String,
     viewModel: ExercisesViewModel,
+    fromWorkout: Boolean = false,
+    routineName: String? = null,
     onNavigateBack: () -> Unit,
     onNavigateToEdit: (String) -> Unit
 ) {
@@ -107,23 +116,48 @@ fun ExerciseDetailScreen(
     val exercise = state.exercise
     var showArchiveDialog by remember { mutableStateOf(false) }
     var preferredUnit by remember { mutableStateOf("kg") }
-    var selectedTab by remember { mutableStateOf(0) } // 0 = Log, 1 = History, 2 = About
     var selectedHistoryRange by remember { mutableStateOf("1M") }
+    var saveFeedbackMessage by remember { mutableStateOf<String?>(null) }
 
-    // Quick set rows matching Image 1
+    // When fromWorkout is false (standalone Exercises tab), ONLY show History and About!
+    // When fromWorkout is true (Workout routine drilldown), show Log, History, About!
+    val tabs = if (fromWorkout) listOf("Log", "History", "About") else listOf("History", "About")
+    var selectedTabIndex by remember(fromWorkout) { mutableStateOf(0) }
+    val currentTab = tabs[selectedTabIndex.coerceIn(0, tabs.size - 1)]
+
+    // Sets start clean and empty ready to enter weights & reps
     val setsList = remember {
         mutableStateListOf(
-            QuickSetRowState(1, "80", "8", true),
-            QuickSetRowState(2, "80", "8", true),
-            QuickSetRowState(3, "75", "10", true),
-            QuickSetRowState(4, "75", "10", true)
+            QuickSetRowState(1, "", "", false),
+            QuickSetRowState(2, "", "", false),
+            QuickSetRowState(3, "", "", false)
         )
     }
 
     Scaffold(
         topBar = {
             TopAppBar(
-                title = { Text(exercise?.name ?: "Exercise Details", maxLines = 1, fontWeight = FontWeight.Bold) },
+                title = {
+                    Column {
+                        if (fromWorkout && !routineName.isNullOrBlank()) {
+                            Text(
+                                text = routineName.uppercase(),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    color = PrimaryPurple,
+                                    fontWeight = FontWeight.ExtraBold,
+                                    fontSize = 11.sp,
+                                    letterSpacing = 0.5.sp
+                                )
+                            )
+                        }
+                        Text(
+                            text = exercise?.name ?: "Exercise Details",
+                            maxLines = 1,
+                            fontWeight = FontWeight.Bold,
+                            style = MaterialTheme.typography.titleMedium
+                        )
+                    }
+                },
                 navigationIcon = {
                     IconButton(onClick = onNavigateBack) {
                         Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = PrimaryText)
@@ -167,7 +201,7 @@ fun ExerciseDetailScreen(
                 .background(BackgroundDark)
                 .testTag("exercise_detail_screen")
         ) {
-            // Segmented Pill Tabs matching Image 1: [Log] [History] [About]
+            // Segmented Pill Tabs: [Log] [History] [About] or [History] [About]
             Row(
                 modifier = Modifier
                     .fillMaxWidth()
@@ -177,16 +211,15 @@ fun ExerciseDetailScreen(
                     .padding(4.dp),
                 horizontalArrangement = Arrangement.SpaceBetween
             ) {
-                val tabs = listOf("Log", "History", "About")
                 tabs.forEachIndexed { index, title ->
-                    val isSelected = selectedTab == index
+                    val isSelected = selectedTabIndex == index
                     Box(
                         modifier = Modifier
                             .weight(1f)
                             .height(38.dp)
                             .clip(RoundedCornerShape(10.dp))
                             .background(if (isSelected) PrimaryPurple else Color.Transparent)
-                            .clickable { selectedTab = index },
+                            .clickable { selectedTabIndex = index },
                         contentAlignment = Alignment.Center
                     ) {
                         Text(
@@ -200,9 +233,9 @@ fun ExerciseDetailScreen(
                 }
             }
 
-            when (selectedTab) {
-                0 -> {
-                    // TAB 1: LOG SCREEN (Matching Image 1 Screen 5)
+            when (currentTab) {
+                "Log" -> {
+                    // TAB: LOG SCREEN (Only visible when navigated from a workout routine)
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
                         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 12.dp),
@@ -225,8 +258,9 @@ fun ExerciseDetailScreen(
                             }
                         }
 
-                        // Previous Record Card matching Image 1
+                        // Real Previous Record Card
                         item {
+                            val lastRecord = state.history.firstOrNull()
                             GymCard(
                                 backgroundColor = PrimaryCard,
                                 modifier = Modifier.fillMaxWidth()
@@ -244,20 +278,38 @@ fun ExerciseDetailScreen(
                                             style = MaterialTheme.typography.labelSmall.copy(color = MutedText)
                                         )
                                         Spacer(modifier = Modifier.height(4.dp))
-                                        val prWeight = state.prSummary.maxWeight?.roundToInt() ?: 80
-                                        Text(
-                                            text = "$prWeight kg × 8 reps",
-                                            style = MaterialTheme.typography.titleMedium.copy(
-                                                fontWeight = FontWeight.Bold,
-                                                color = PrimaryText
+                                        if (lastRecord != null) {
+                                            val maxReps = lastRecord.sets.maxOfOrNull { it.reps ?: 0 } ?: 0
+                                            Text(
+                                                text = "${lastRecord.maxWeight.roundToInt()} $preferredUnit × $maxReps reps",
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = PrimaryText
+                                                )
                                             )
-                                        )
+                                        } else {
+                                            Text(
+                                                text = "No recorded sets yet",
+                                                style = MaterialTheme.typography.titleMedium.copy(
+                                                    fontWeight = FontWeight.Bold,
+                                                    color = SecondaryText
+                                                )
+                                            )
+                                        }
                                     }
 
-                                    Text(
-                                        text = "12 Oct 2026",
-                                        style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText)
-                                    )
+                                    if (lastRecord != null) {
+                                        val dateStr = SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(lastRecord.date))
+                                        Text(
+                                            text = dateStr,
+                                            style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText)
+                                        )
+                                    } else {
+                                        Text(
+                                            text = "Ready to log",
+                                            style = MaterialTheme.typography.bodySmall.copy(color = NeonCyan)
+                                        )
+                                    }
                                 }
                             }
                         }
@@ -312,14 +364,14 @@ fun ExerciseDetailScreen(
                             }
                         }
 
-                        // Set Rows matching Image 1
+                        // Clean Blank Set Rows with editable Weight, editable Reps, and Delete Set button
                         itemsIndexed(setsList) { index, setItem ->
                             Row(
                                 modifier = Modifier
                                     .fillMaxWidth()
                                     .clip(RoundedCornerShape(12.dp))
                                     .background(PrimaryCard)
-                                    .padding(horizontal = 14.dp, vertical = 10.dp),
+                                    .padding(horizontal = 12.dp, vertical = 8.dp),
                                 verticalAlignment = Alignment.CenterVertically
                             ) {
                                 Text(
@@ -328,60 +380,71 @@ fun ExerciseDetailScreen(
                                         fontWeight = FontWeight.Bold,
                                         color = PrimaryText
                                     ),
-                                    modifier = Modifier.width(60.dp)
+                                    modifier = Modifier.width(46.dp)
                                 )
 
-                                Spacer(modifier = Modifier.width(12.dp))
+                                Spacer(modifier = Modifier.width(6.dp))
 
-                                // Weight box
-                                Box(
+                                // Editable Weight Input TextField
+                                OutlinedTextField(
+                                    value = setItem.weight,
+                                    onValueChange = { newWeight ->
+                                        setsList[index] = setItem.copy(weight = newWeight)
+                                    },
+                                    placeholder = { Text("kg", color = MutedText, fontSize = 13.sp) },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Decimal),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedContainerColor = ElevatedSurface,
+                                        unfocusedContainerColor = ElevatedSurface,
+                                        focusedBorderColor = PrimaryPurple,
+                                        unfocusedBorderColor = DividerDark,
+                                        focusedTextColor = PrimaryText,
+                                        unfocusedTextColor = PrimaryText
+                                    ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(42.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(ElevatedSurface)
-                                        .border(1.dp, DividerDark, RoundedCornerShape(8.dp))
-                                        .padding(horizontal = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = setItem.weight,
-                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = PrimaryText
-                                        )
-                                    )
-                                }
+                                        .height(48.dp)
+                                        .testTag("set_weight_input_${setItem.setNumber}")
+                                )
+
+                                Spacer(modifier = Modifier.width(6.dp))
 
                                 Text(
                                     text = "×",
-                                    style = MaterialTheme.typography.titleMedium.copy(color = MutedText),
-                                    modifier = Modifier.padding(horizontal = 12.dp)
+                                    style = MaterialTheme.typography.titleMedium.copy(color = MutedText)
                                 )
 
-                                // Reps box
-                                Box(
+                                Spacer(modifier = Modifier.width(6.dp))
+
+                                // Editable Reps Input TextField
+                                OutlinedTextField(
+                                    value = setItem.reps,
+                                    onValueChange = { newReps ->
+                                        setsList[index] = setItem.copy(reps = newReps)
+                                    },
+                                    placeholder = { Text("reps", color = MutedText, fontSize = 13.sp) },
+                                    singleLine = true,
+                                    keyboardOptions = KeyboardOptions(keyboardType = KeyboardType.Number),
+                                    shape = RoundedCornerShape(8.dp),
+                                    colors = OutlinedTextFieldDefaults.colors(
+                                        focusedContainerColor = ElevatedSurface,
+                                        unfocusedContainerColor = ElevatedSurface,
+                                        focusedBorderColor = PrimaryPurple,
+                                        unfocusedBorderColor = DividerDark,
+                                        focusedTextColor = PrimaryText,
+                                        unfocusedTextColor = PrimaryText
+                                    ),
                                     modifier = Modifier
                                         .weight(1f)
-                                        .height(42.dp)
-                                        .clip(RoundedCornerShape(8.dp))
-                                        .background(ElevatedSurface)
-                                        .border(1.dp, DividerDark, RoundedCornerShape(8.dp))
-                                        .padding(horizontal = 10.dp),
-                                    contentAlignment = Alignment.Center
-                                ) {
-                                    Text(
-                                        text = setItem.reps,
-                                        style = MaterialTheme.typography.bodyLarge.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = PrimaryText
-                                        )
-                                    )
-                                }
+                                        .height(48.dp)
+                                        .testTag("set_reps_input_${setItem.setNumber}")
+                                )
 
-                                Spacer(modifier = Modifier.width(16.dp))
+                                Spacer(modifier = Modifier.width(8.dp))
 
-                                // Green Checkmark circle button
+                                // Done completion toggle
                                 Box(
                                     modifier = Modifier
                                         .size(36.dp)
@@ -396,7 +459,29 @@ fun ExerciseDetailScreen(
                                         imageVector = Icons.Default.Check,
                                         contentDescription = "Done",
                                         tint = if (setItem.isDone) Color.Black else SecondaryText,
-                                        modifier = Modifier.size(20.dp)
+                                        modifier = Modifier.size(18.dp)
+                                    )
+                                }
+
+                                Spacer(modifier = Modifier.width(4.dp))
+
+                                // Delete Set Button
+                                IconButton(
+                                    onClick = {
+                                        if (setsList.size > 1) {
+                                            setsList.removeAt(index)
+                                            val reindexed = setsList.mapIndexed { i, s -> s.copy(setNumber = i + 1) }
+                                            setsList.clear()
+                                            setsList.addAll(reindexed)
+                                        }
+                                    },
+                                    modifier = Modifier.size(32.dp)
+                                ) {
+                                    Icon(
+                                        imageVector = Icons.Default.Delete,
+                                        contentDescription = "Delete Set",
+                                        tint = AccentError,
+                                        modifier = Modifier.size(18.dp)
                                     )
                                 }
                             }
@@ -405,33 +490,65 @@ fun ExerciseDetailScreen(
                         // Add Set Button
                         item {
                             GymSecondaryButton(
-                                text = "Add Set +",
+                                text = "+ Add Set",
                                 onClick = {
-                                    val last = setsList.lastOrNull()
+                                    val nextNumber = setsList.size + 1
                                     setsList.add(
                                         QuickSetRowState(
-                                            setNumber = setsList.size + 1,
-                                            weight = last?.weight ?: "80",
-                                            reps = last?.reps ?: "8",
-                                            isDone = true
+                                            setNumber = nextNumber,
+                                            weight = "",
+                                            reps = "",
+                                            isDone = false
                                         )
                                     )
                                 },
-                                modifier = Modifier.fillMaxWidth()
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("add_set_btn")
                             )
                         }
 
-                        // Save Workout Button (Purple gradient)
+                        // Save Log & Finish Button
                         item {
                             GymGradientButton(
-                                text = "Save Workout",
-                                onClick = onNavigateBack,
-                                modifier = Modifier.fillMaxWidth()
+                                text = "Save Log & Finish Workout",
+                                onClick = {
+                                    val validSets = setsList.mapNotNull { s ->
+                                        val w = s.weight.toDoubleOrNull()
+                                        val r = s.reps.toIntOrNull()
+                                        if (w != null && w > 0.0 && r != null && r > 0) {
+                                            QuickSetInput(
+                                                setNumber = s.setNumber,
+                                                weight = w,
+                                                reps = r,
+                                                weightUnit = preferredUnit,
+                                                isCompleted = true
+                                            )
+                                        } else null
+                                    }
+
+                                    if (validSets.isEmpty()) {
+                                        saveFeedbackMessage = "Please enter valid weight and reps for at least one set before saving."
+                                    } else {
+                                        viewModel.logExerciseWorkout(
+                                            exerciseId = exercise.id,
+                                            sessionName = routineName ?: exercise.name,
+                                            setsInput = validSets,
+                                            onSaved = {
+                                                val totalVolume = validSets.sumOf { (it.weight ?: 0.0) * (it.reps ?: 0) }
+                                                saveFeedbackMessage = "Workout successfully logged! ${validSets.size} sets recorded with ${totalVolume.toInt()} $preferredUnit volume."
+                                            }
+                                        )
+                                    }
+                                },
+                                modifier = Modifier
+                                    .fillMaxWidth()
+                                    .testTag("save_workout_log_btn")
                             )
                         }
                     }
                 }
-                1 -> {
+                "History" -> {
                     // TAB 2: HISTORY SCREEN (Matching Image 1 Screen 6)
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),
@@ -467,75 +584,35 @@ fun ExerciseDetailScreen(
                             }
                         }
 
-                        // Dual Bar Chart Card (Weight vs Reps)
+                        // Real Dual-Series Progress Graph (Estimated 1RM + Max Weight)
                         item {
-                            GymCard(backgroundColor = PrimaryCard) {
-                                Column(modifier = Modifier.padding(16.dp)) {
-                                    // Legend
-                                    Row(
-                                        horizontalArrangement = Arrangement.spacedBy(16.dp),
-                                        verticalAlignment = Alignment.CenterVertically
-                                    ) {
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(PrimaryPurple))
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Weight (kg)", style = MaterialTheme.typography.labelSmall.copy(color = SecondaryText))
-                                        }
-                                        Row(verticalAlignment = Alignment.CenterVertically) {
-                                            Box(modifier = Modifier.size(10.dp).clip(CircleShape).background(NeonAmber))
-                                            Spacer(modifier = Modifier.width(6.dp))
-                                            Text("Reps", style = MaterialTheme.typography.labelSmall.copy(color = SecondaryText))
-                                        }
+                            val chartPoints = remember(state.history) {
+                                state.history.mapNotNull { record ->
+                                    val maxWeight = record.maxWeight
+                                    val bestSet = record.sets.maxByOrNull { set ->
+                                        BodyMath.calculateEpley1RM(set.weight ?: 0.0, set.reps ?: 0)
                                     }
+                                    val best1RM = if (bestSet != null) {
+                                        BodyMath.calculateEpley1RM(bestSet.weight ?: 0.0, bestSet.reps ?: 0)
+                                    } else maxWeight
+                                    val bestReps = bestSet?.reps ?: 0
 
-                                    Spacer(modifier = Modifier.height(16.dp))
-
-                                    // Bar chart visualization
-                                    val historyBars = listOf(
-                                        Triple("Sep 15", 70, 8),
-                                        Triple("Sep 22", 75, 10),
-                                        Triple("Sep 29", 75, 8),
-                                        Triple("Oct 6", 80, 8),
-                                        Triple("Oct 13", 85, 8)
-                                    )
-
-                                    Row(
-                                        modifier = Modifier
-                                            .fillMaxWidth()
-                                            .height(130.dp),
-                                        horizontalArrangement = Arrangement.SpaceAround,
-                                        verticalAlignment = Alignment.Bottom
-                                    ) {
-                                        historyBars.forEach { (date, w, r) ->
-                                            Column(horizontalAlignment = Alignment.CenterHorizontally) {
-                                                Row(
-                                                    horizontalArrangement = Arrangement.spacedBy(3.dp),
-                                                    verticalAlignment = Alignment.Bottom
-                                                ) {
-                                                    // Weight bar (Purple)
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .width(10.dp)
-                                                            .height(((w / 100f) * 90).dp)
-                                                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                                            .background(PrimaryPurple)
-                                                    )
-                                                    // Reps bar (Orange)
-                                                    Box(
-                                                        modifier = Modifier
-                                                            .width(10.dp)
-                                                            .height(((r / 15f) * 70).dp)
-                                                            .clip(RoundedCornerShape(topStart = 4.dp, topEnd = 4.dp))
-                                                            .background(NeonAmber)
-                                                    )
-                                                }
-                                                Spacer(modifier = Modifier.height(6.dp))
-                                                Text(date, style = MaterialTheme.typography.labelSmall.copy(color = MutedText, fontSize = 9.sp))
-                                            }
-                                        }
-                                    }
+                                    if (maxWeight > 0.0 || best1RM > 0.0) {
+                                        ExerciseSessionPoint(
+                                            dateMillis = record.date,
+                                            maxWeight = maxWeight,
+                                            estimated1RM = best1RM,
+                                            bestReps = bestReps
+                                        )
+                                    } else null
                                 }
                             }
+
+                            ExerciseProgressChart(
+                                points = chartPoints,
+                                unit = preferredUnit,
+                                modifier = Modifier.fillMaxWidth()
+                            )
                         }
 
                         // Recent Records Header
@@ -549,41 +626,59 @@ fun ExerciseDetailScreen(
                             )
                         }
 
-                        // Recent Records List matching Image 1
-                        val recentItems = listOf(
-                            "12 Oct 2026" to "80 kg × 8 reps",
-                            "8 Oct 2026" to "75 kg × 10 reps",
-                            "5 Oct 2026" to "70 kg × 8 reps",
-                            "1 Oct 2026" to "70 kg × 8 reps",
-                            "28 Sep 2026" to "65 kg × 10 reps"
-                        )
-
-                        items(recentItems) { (recordDate, performance) ->
-                            GymCard(backgroundColor = PrimaryCard) {
-                                Row(
-                                    modifier = Modifier
-                                        .fillMaxWidth()
-                                        .padding(horizontal = 16.dp, vertical = 14.dp),
-                                    horizontalArrangement = Arrangement.SpaceBetween,
-                                    verticalAlignment = Alignment.CenterVertically
-                                ) {
-                                    Text(
-                                        text = recordDate,
-                                        style = MaterialTheme.typography.bodyMedium.copy(color = SecondaryText)
-                                    )
-                                    Text(
-                                        text = performance,
-                                        style = MaterialTheme.typography.titleMedium.copy(
-                                            fontWeight = FontWeight.Bold,
-                                            color = PrimaryText
+                        // Real Recent Records List from Room DB
+                        if (state.history.isEmpty()) {
+                            item {
+                                GymCard(backgroundColor = PrimaryCard) {
+                                    Box(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(20.dp),
+                                        contentAlignment = Alignment.Center
+                                    ) {
+                                        Text(
+                                            text = "No recorded sessions yet. Log this exercise in a routine to begin tracking progress.",
+                                            style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText, textAlign = TextAlign.Center)
                                         )
-                                    )
+                                    }
+                                }
+                            }
+                        } else {
+                            items(state.history) { record ->
+                                val dateStr = SimpleDateFormat("d MMM yyyy", Locale.getDefault()).format(Date(record.date))
+                                val maxReps = record.sets.maxOfOrNull { it.reps ?: 0 } ?: 0
+                                GymCard(backgroundColor = PrimaryCard) {
+                                    Row(
+                                        modifier = Modifier
+                                            .fillMaxWidth()
+                                            .padding(horizontal = 16.dp, vertical = 14.dp),
+                                        horizontalArrangement = Arrangement.SpaceBetween,
+                                        verticalAlignment = Alignment.CenterVertically
+                                    ) {
+                                        Column {
+                                            Text(
+                                                text = dateStr,
+                                                style = MaterialTheme.typography.bodyMedium.copy(color = SecondaryText)
+                                            )
+                                            Text(
+                                                text = "${record.sets.size} sets logged",
+                                                style = MaterialTheme.typography.labelSmall.copy(color = MutedText)
+                                            )
+                                        }
+                                        Text(
+                                            text = "${record.maxWeight.roundToInt()} $preferredUnit × $maxReps reps",
+                                            style = MaterialTheme.typography.titleMedium.copy(
+                                                fontWeight = FontWeight.Bold,
+                                                color = PrimaryText
+                                            )
+                                        )
+                                    }
                                 }
                             }
                         }
                     }
                 }
-                2 -> {
+                "About" -> {
                     // TAB 3: ABOUT / INSTRUCTIONS
                     LazyColumn(
                         modifier = Modifier.fillMaxSize(),

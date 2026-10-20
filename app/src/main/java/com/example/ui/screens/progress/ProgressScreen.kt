@@ -1,5 +1,6 @@
 package com.example.ui.screens.progress
 
+import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -340,20 +341,11 @@ fun ProgressScreen(
                                         .padding(14.dp),
                                     verticalAlignment = Alignment.CenterVertically
                                 ) {
-                                    Box(
-                                        modifier = Modifier
-                                            .size(44.dp)
-                                            .clip(RoundedCornerShape(10.dp))
-                                            .background(ElevatedSurface),
-                                        contentAlignment = Alignment.Center
-                                    ) {
-                                        Icon(
-                                            imageVector = Icons.Default.FitnessCenter,
-                                            contentDescription = null,
-                                            tint = item.color,
-                                            modifier = Modifier.size(24.dp)
-                                        )
-                                    }
+                                    TargetedMuscleBadge(
+                                        muscleGroup = item.muscleGroup,
+                                        highlightColor = item.color,
+                                        modifier = Modifier.size(50.dp)
+                                    )
 
                                     Spacer(modifier = Modifier.width(14.dp))
 
@@ -692,6 +684,130 @@ fun BodyStatDetailRow(
             Text(text = value, style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryText))
             Spacer(modifier = Modifier.width(12.dp))
             Text(text = delta, style = MaterialTheme.typography.bodyMedium.copy(fontWeight = FontWeight.Bold, color = deltaColor))
+        }
+    }
+}
+
+@Composable
+fun TargetedMuscleBadge(
+    muscleGroup: String,
+    highlightColor: Color,
+    modifier: Modifier = Modifier
+) {
+    val norm = muscleGroup.lowercase()
+    val isChest = norm.contains("chest")
+    val isBack = norm.contains("back")
+    val isShoulders = norm.contains("shoulder") || norm.contains("delt")
+    val isArms = norm.contains("arm") || norm.contains("bicep") || norm.contains("tricep")
+    val isLegs = norm.contains("leg") || norm.contains("quad") || norm.contains("hamstring")
+    val isCore = norm.contains("core") || norm.contains("abs")
+    val isCalves = norm.contains("calf") || norm.contains("calves")
+    val isGlutes = norm.contains("glute")
+
+    val baseBodyColor = Color(0xFF282A3A)
+
+    Box(
+        modifier = modifier
+            .clip(RoundedCornerShape(12.dp))
+            .background(ElevatedSurface)
+            .padding(4.dp),
+        contentAlignment = Alignment.Center
+    ) {
+        Canvas(modifier = Modifier.fillMaxSize()) {
+            val w = size.width
+            val h = size.height
+
+            // Head
+            drawCircle(
+                color = baseBodyColor,
+                radius = w * 0.11f,
+                center = androidx.compose.ui.geometry.Offset(w * 0.5f, h * 0.15f)
+            )
+
+            // Shoulders / Deltoids
+            val shoulderColor = if (isShoulders) highlightColor else baseBodyColor
+            drawOval(
+                color = shoulderColor,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.16f, h * 0.28f),
+                size = androidx.compose.ui.geometry.Size(w * 0.20f, h * 0.18f)
+            )
+            drawOval(
+                color = shoulderColor,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.64f, h * 0.28f),
+                size = androidx.compose.ui.geometry.Size(w * 0.20f, h * 0.18f)
+            )
+
+            // Arms (Biceps / Triceps)
+            val armColor = if (isArms) highlightColor else baseBodyColor
+            drawRoundRect(
+                color = armColor,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.13f, h * 0.44f),
+                size = androidx.compose.ui.geometry.Size(w * 0.15f, h * 0.24f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+            )
+            drawRoundRect(
+                color = armColor,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.72f, h * 0.44f),
+                size = androidx.compose.ui.geometry.Size(w * 0.15f, h * 0.24f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+            )
+
+            // Upper Torso / Chest / Back
+            val chestColor = if (isChest || isBack) highlightColor else baseBodyColor
+            drawRoundRect(
+                color = chestColor,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.32f, h * 0.28f),
+                size = androidx.compose.ui.geometry.Size(w * 0.36f, h * 0.22f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(8f, 8f)
+            )
+
+            // Midsection / Core / Abs
+            val coreColor = if (isCore) highlightColor else baseBodyColor
+            drawRoundRect(
+                color = coreColor,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.35f, h * 0.48f),
+                size = androidx.compose.ui.geometry.Size(w * 0.30f, h * 0.16f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+            )
+
+            // Hips / Glutes
+            val gluteColor = if (isGlutes) highlightColor else baseBodyColor
+            drawRoundRect(
+                color = gluteColor,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.33f, h * 0.62f),
+                size = androidx.compose.ui.geometry.Size(w * 0.34f, h * 0.10f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+            )
+
+            // Upper Legs / Thighs / Quads
+            val legColor = if (isLegs) highlightColor else baseBodyColor
+            drawRoundRect(
+                color = legColor,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.30f, h * 0.71f),
+                size = androidx.compose.ui.geometry.Size(w * 0.17f, h * 0.16f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+            )
+            drawRoundRect(
+                color = legColor,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.53f, h * 0.71f),
+                size = androidx.compose.ui.geometry.Size(w * 0.17f, h * 0.16f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(6f, 6f)
+            )
+
+            // Lower Legs / Calves
+            val calfColor = if (isCalves) highlightColor else baseBodyColor
+            drawRoundRect(
+                color = calfColor,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.31f, h * 0.86f),
+                size = androidx.compose.ui.geometry.Size(w * 0.15f, h * 0.12f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+            )
+            drawRoundRect(
+                color = calfColor,
+                topLeft = androidx.compose.ui.geometry.Offset(w * 0.54f, h * 0.86f),
+                size = androidx.compose.ui.geometry.Size(w * 0.15f, h * 0.12f),
+                cornerRadius = androidx.compose.ui.geometry.CornerRadius(4f, 4f)
+            )
         }
     }
 }

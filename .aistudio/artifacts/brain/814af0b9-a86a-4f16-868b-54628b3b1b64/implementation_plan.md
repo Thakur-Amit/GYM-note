@@ -1,97 +1,109 @@
-# Home Screen Overhaul & Navigation Fix
+# Implementation Plan: Body Measurements Experience & App-Wide KG Unit Standardization
 
-A comprehensive plan to fix the Home tab opening bug, scale up card sizes and typography to be bold and prominent, introduce high-impact top hero workout artwork matching the UI, and eliminate all dummy data in favor of real reactive database state.
+Transform body tracking into a visual, record-keeping experience matching the user-provided design (`image_d3c75c30.png`). The new system provides visual body figure mapping with progress delta callouts, historical records timeline, metric trend charts with sparklines, dedicated measurement logging, exclusive `kg` unit standardization across the app, and full data export capabilities.
 
-### User Review & Critical Decisions
+---
+
+## 1. User Review Required
 
 > [!IMPORTANT]
-> The following decisions were confirmed based on your preferences:
-> - **Fitness Hero Artwork**: A vibrant, high-contrast fitness hero banner positioned at the top of the Home screen above workout routines.
-> - **Card Sizing & Typography**: Maximum card width with enlarged, extra-bold titles and metrics for maximum impact and visual legibility.
-> - **Data Fidelity**: All hardcoded numbers (such as dummy 3,200 kg volume and placeholder routine strings) replaced with genuine Room DB state and clean zero-state indicators.
+> **Key Decisions & Confirmations:**
+> - **Comparison baseline:** Delta indicators show difference compared to the **last logged record** (as confirmed).
+> - **Entry flow:** Dedicated **Add New** tab inside the Body Measurements screen for clean input and live composition preview.
+> - **Unit standardization:** Weight unit is permanently locked to **`kg`** throughout the app (removing all `lb` toggles, converters, and selectors).
+> - **Body figure visual:** High-fidelity neon-wireframe athletic silhouette with anchor dots and callout pointer lines for all 10+ body parts (Neck, Chest, Waist, Hips, Arms, Shoulders, Thighs, Calves).
 
 ---
 
-### 1. Overview & Core Concept
+## 2. Proposed Changes
 
-- **What It Does**: Resolves the navigation bug that prevented opening or returning to the Home tab, transforms the Home screen into an ultra-bold, high-visibility dashboard with an expansive 16:9 workout hero illustration, magnifies card geometry and typography, and binds all stats strictly to real local Room Database records.
-- **Target Audience / Persona**: Dedicated gym-goers who want instant, bold glanceability of their workout metrics and immediate one-tap workout logging without artificial mock numbers.
-- **Key Value**: Reliable navigation between tabs, visual punch matching the reference aesthetic, and authentic workout analytics.
+### A. Body Measurements Screen (`BodyMeasurementsScreen.kt`)
+Create a new primary destination matching the 2-screen reference UI with 4 tab destinations:
+1. **Tabs Header:** `[ Overview ]`, `[ History ]`, `[ Charts ]`, `[ Add New ]`.
+2. **Overview Tab:**
+   - **Header Card:** Last updated date badge and "+ Add New" action button.
+   - **3 Top KPI Cards:**
+     - Weight: Value in `kg` with delta (`↓ -1.2 kg vs last record`).
+     - Body Fat (Est.): Value in `%` (U.S. Navy formula) with delta (`↓ -2.4% vs last record`).
+     - BMI: Value with delta (`↓ -0.6 vs last record`).
+   - **Body Figure Visual Mapping (`BodyFigureOverview.kt`):**
+     - Dark-themed athletic silhouette with glowing purple/cyan outline.
+     - Pulsing anchor dots positioned at anatomical sites: Neck, Shoulders, Chest, Left/Right Arm, Waist, Hips, Left/Right Thigh, Left/Right Calf.
+     - Callout labels with pointer lines showing current circumference in `cm` and delta vs previous record (`↓ -0.5 cm` in green for reduction/gain according to fitness context).
+     - Informational card: "Compare with previous records to see your progress over time."
+   - **Recent Records Section:**
+     - Timeline of recent dated entries with summary (`72.5 kg • 18.6% BF • 10 measurements`).
+     - "View All >" quickly jumps to the History tab.
+3. **History Tab:**
+   - Full reverse-chronological list of all logged measurement entries.
+   - Expandable card per session displaying every measured circumference, notes, and deltas.
+   - Options to edit or delete past entries.
+4. **Charts Tab:**
+   - Metric selector dropdown (Weight, Body Fat %, BMI, Neck, Chest, Waist, Hips, Arms, Thighs, Calves).
+   - Time-range pills: `[ 1M ]`, `[ 3M ]`, `[ 6M ]`, `[ 1Y ]`, `[ All ]`.
+   - Smooth curved trend chart with gradient area fill, data point markers, and interactive date/value tooltip callout.
+   - **"All Measurements Progress" Section:**
+     - List of all tracked metrics with current value, overall time-range change, and custom canvas-drawn sparkline mini-trend graph for each body part.
+5. **Add New Tab:**
+   - Structured entry form with sections:
+     - Weight (`kg`)
+     - Core Circumferences (`cm`): Neck, Waist, Hips
+     - Upper Body (`cm`): Chest, Shoulders, Left/Right Biceps, Left/Right Forearms
+     - Lower Body (`cm`): Left/Right Thighs, Left/Right Calves
+     - Date picker & notes
+     - Live auto-calculated U.S. Navy Body Fat %, BMI, and Fat-Free Mass card preview
+     - "Save Record" button that persists to Room and updates all deltas.
 
 ---
 
-### 2. User Experience & Visual Design
-
-- **Key User Flows**:
-  1. *Open / Switch to Home Tab*: Users tap "Home" on the bottom navigation bar from any screen; the app smoothly lands on the Home dashboard without backstack deadlock.
-  2. *Hero Inspiration & Quick Start*: Users view the top hero graphic displaying their current training streak and a bold "Start Workout" action button.
-  3. *Routine & Body Weight Cards*: Enlarged side-by-side or stacked bento cards showing active split routines with glowing neon progress rings and real logged weight.
-  4. *Activity Matrix*: Visual 3-month dot matrix showing actual completed session days.
-  5. *Real Volume Analytics*: Real calculated 7-day cumulative volume lifted (showing 0 kg when clean, automatically increasing with completed workout sets).
-
-- **Visual Identity & Theme**:
-  - *Hero Art*: Sleek 16:9 athletic artwork with dark background and vibrant purple/electric cyan highlights.
-  - *Typography*: Scaled display metrics (36–40sp extra-bold), primary card headers (20–22sp bold), and high-contrast labels.
-  - *Cards & Borders*: Full-width container surfaces (`#161619`) with defined neon borders and 20–24dp rounded corners.
-  - *Zero State*: Clean and motivating empty states with active prompts to record the first session or log current body weight.
+### B. Profile Screen & Navigation Integration
+- In `ProfileScreen.kt`:
+  - Add a dedicated **"Body Measurements"** feature card/button right under the Profile header:
+    - Title: "Body Measurements & Progress"
+    - Subtitle: "Track circumferences, body figure map, and composition trends"
+    - Icon: Body figure / ruler icon with ChevronRight.
+    - Tapping opens the new `BodyMeasurementsScreen`.
+  - **Remove weight unit selector (`kg / lb` toggle)** from Profile. Set profile unit permanently to `"kg"`.
+- In `GymNavGraph.kt` & `Screen.kt`:
+  - Add `Screen.BodyMeasurements` route.
+  - Connect navigation from Profile and Home reminder card to `BodyMeasurementsScreen`.
 
 ---
 
-### 3. Key Product Decisions & Trade-Offs
-
-- **Decision 1: Navigation Graph Stabilization**:
-  - *Chosen Approach*: Streamline `GymNavGraph` bottom navigation dispatch. Replace strict nested `popUpTo` state-saving that can deadlock single-top root destinations with clean, standard Navigation Compose route matching.
-  - *Why*: Guarantees the Home tab opens reliably from any screen, sub-screen, or editor without freeze or unhandled backstack state.
-- **Decision 2: Elimination of Dummy Data vs. Starter Experience**:
-  - *Chosen Approach*: Remove all hardcoded `3200.0`, static `0.65f` progress rings, and fake routine dates from `HomeViewModel`. Read directly from Room's `allTemplates`, `allBodyWeightEntries`, and `completedSessions`. If no workouts exist, display genuine `0` with a clean "No workouts logged yet" indicator and quick-start button.
-  - *Why*: Builds trust and ensures accurate personal fitness tracking.
-- **Decision 3: Hero Banner Presentation**:
-  - *Chosen Approach*: Generate and integrate a dedicated 16:9 fitness hero banner at the top of the Home LazyColumn with an overlaid gradient and quick session launch action.
-  - *Why*: Immediately elevates visual polish and matches the user's reference mockup.
+### C. App-Wide `kg` Unit Standardization
+- Remove `preferredWeightUnit` selector and `lb` switching logic across all screens:
+  - `HomeScreen.kt`: Permanently display `kg`, remove unit toggles in quick weight dialog.
+  - `ProfileScreen.kt`: Remove `lb / kg` segmented control.
+  - `BodyWeightScreen.kt` & `AddWeightDialog`: Hardcode and enforce `kg`.
+  - `WorkoutSet` & `QuickSetInput`: Enforce `kg` as default and only unit.
+  - Clean up any unused unit conversions while preserving database compatibility.
 
 ---
 
-### 4. Technical Architecture & Data Strategy
+### D. Export & Backup Enhancement
+- In `BackupManager.kt`:
+  - Include full `body_measurement_entries` and `body_composition_snapshots` in JSON backup and restore pipelines.
+  - Add dedicated method `exportBodyMeasurementsToCsv()`:
+    - Columns: `Date, Weight (kg), BMI, Body Fat %, Fat-Free Mass (kg), Neck (cm), Shoulders (cm), Chest (cm), Waist (cm), Hips (cm), Left Arm (cm), Right Arm (cm), Left Thigh (cm), Right Thigh (cm), Left Calf (cm), Right Calf (cm), Notes`.
+- In `BackupRestoreScreen.kt`:
+  - Add an action button: **"Export Body Measurements (CSV)"** with share/save intent.
 
-```
-┌───────────────────────────────────────────────────────────────┐
-│                       GymAppRoot                              │
-│  ┌─────────────────────────────────────────────────────────┐  │
-│  │              Bottom Navigation (5 Tabs)                 │  │
-│  │   [Home]     [Workout]   [Exercises]  [Progress] [Profile]│  │
-│  └──────┬──────────────────────────────────────────────────┘  │
-│         │ (Safe navigation without state deadlock)            │
-│         ▼                                                     │
-│  ┌─────────────────────────────────────────────────────────┐  │
-│  │                     HomeScreen                          │  │
-│  │  ┌───────────────────────────────────────────────────┐  │  │
-│  │  │ 1. Workouts Header + Action Buttons               │  │  │
-│  │  ├───────────────────────────────────────────────────┤  │  │
-│  │  │ 2. Top Hero Card (16:9 Illustration + Quick CTA) │  │  │
-│  │  ├───────────────────────────────────────────────────┤  │  │
-│  │  │ 3. Bigger Bento Cards: Routine 1 & Body Weight    │  │  │
-│  │  ├───────────────────────────────────────────────────┤  │  │
-│  │  │ 4. Activity Dot Matrix + Routine 2                │  │  │
-│  │  ├───────────────────────────────────────────────────┤  │  │
-│  │  │ 5. Real 7-Day Volume Card (Real Room Sum)         │  │  │
-│  │  ├───────────────────────────────────────────────────┤  │  │
-│  │  │ 6. Full-Width Quick Add Tile                      │  │  │
-│  │  └───────────────────────────────────────────────────┘  │  │
-│  └──────────────────────────────┬──────────────────────────┘  │
-│                                 │ Reactive Flow               │
-│                                 ▼                             │
-│  ┌─────────────────────────────────────────────────────────┐  │
-│  │                    HomeViewModel                        │  │
-│  │     - UserProfile (Room)      - BodyWeight (Room)       │  │
-│  │     - ActiveSession (Room)    - CompletedSessions (Room)│  │
-│  │     - Real Volume Calculation - Real Streak Data        │  │
-│  └─────────────────────────────────────────────────────────┘  │
-└───────────────────────────────────────────────────────────────┘
-```
+---
 
-- **Execution Steps**:
-  1. Fix navigation listener & backstack handling in `GymNavGraph.kt` to ensure Home tab opens smoothly.
-  2. Generate and package the top fitness hero artwork drawable (`img_home_hero.jpg`).
-  3. Refactor `HomeViewModel.kt` to strip all mock fallback numbers and emit authentic Room DB metrics.
-  4. Redesign `HomeScreen.kt` with enlarged card geometry, bolder typography, top hero artwork, and clean zero states.
-  5. Validate with `compile_applet` and Robolectric unit tests.
+## 3. Verification Plan
+
+### Automated Tests
+1. **Robolectric & Unit Tests (`GymTrackerComprehensiveTest.kt`):**
+   - Test measurement entry insertion, delta calculation vs previous record.
+   - Test CSV export generation format for body measurements.
+   - Test historical timeline ordering and metric trend data generation.
+   - Execute: `gradle :app:testDebugUnitTest`.
+
+### Visual & Interactive Verification
+1. Open Profile screen -> verify "Body Measurements" entry button is present and `lb` toggle is gone.
+2. Open Body Measurements screen -> verify:
+   - Overview tab displays 3 top KPI cards with delta vs last record.
+   - Neon body figure graphic with callouts for Neck, Chest, Waist, Hips, Arms, Thighs, Calves.
+   - Charts tab displays metric dropdown, time-range filters, and sparkline mini-charts for all metrics.
+   - Add New tab allows entering measurements in kg/cm and saving.
+3. Open Backup & Restore -> verify "Export Body Measurements (CSV)" generates valid CSV data.

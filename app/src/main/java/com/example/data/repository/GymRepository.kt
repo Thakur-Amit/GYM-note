@@ -2,6 +2,8 @@ package com.example.data.repository
 
 import android.net.Uri
 import com.example.data.local.AppDatabase
+import com.example.data.model.BodyCompositionSnapshot
+import com.example.data.model.BodyMeasurementEntry
 import com.example.data.model.BodyWeightEntry
 import com.example.data.model.Exercise
 import com.example.data.model.ExercisePRSummary
@@ -18,6 +20,7 @@ import com.example.data.model.WeightUnit
 import com.example.data.model.WorkoutSchedule
 import com.example.data.model.WorkoutSession
 import com.example.data.model.WorkoutSessionWithDetails
+import com.example.data.model.QuickSetInput
 import com.example.data.model.WorkoutSet
 import com.example.data.model.WorkoutTemplate
 import com.example.data.model.WorkoutTemplateWithExercises
@@ -96,6 +99,47 @@ class GymRepository(
     suspend fun updateBodyWeightEntry(entry: BodyWeightEntry) = withContext(Dispatchers.IO) {
         database.bodyWeightDao().update(entry)
     }
+
+    // ----------------------------------------------------
+    // Body Circumference Measurements & Body Composition
+    // ----------------------------------------------------
+    val allBodyMeasurements: Flow<List<BodyMeasurementEntry>> =
+        database.bodyMeasurementDao().getAllEntries()
+
+    val latestBodyMeasurement: Flow<BodyMeasurementEntry?> =
+        database.bodyMeasurementDao().getLatestEntry()
+
+    suspend fun addBodyMeasurementEntry(entry: BodyMeasurementEntry): Long = withContext(Dispatchers.IO) {
+        database.bodyMeasurementDao().insert(entry)
+    }
+
+    suspend fun updateBodyMeasurementEntry(entry: BodyMeasurementEntry) = withContext(Dispatchers.IO) {
+        database.bodyMeasurementDao().update(entry)
+    }
+
+    suspend fun deleteBodyMeasurementEntry(id: Long) = withContext(Dispatchers.IO) {
+        database.bodyMeasurementDao().deleteById(id)
+    }
+
+    fun getMeasurementsBetween(start: Long, end: Long): Flow<List<BodyMeasurementEntry>> =
+        database.bodyMeasurementDao().getEntriesBetween(start, end)
+
+    val allCompositionSnapshots: Flow<List<BodyCompositionSnapshot>> =
+        database.bodyCompositionDao().getAllSnapshots()
+
+    val latestCompositionSnapshot: Flow<BodyCompositionSnapshot?> =
+        database.bodyCompositionDao().getLatestSnapshot()
+
+    suspend fun addCompositionSnapshot(snapshot: BodyCompositionSnapshot): Long = withContext(Dispatchers.IO) {
+        database.bodyCompositionDao().insert(snapshot)
+    }
+
+    suspend fun deleteCompositionSnapshot(id: Long) = withContext(Dispatchers.IO) {
+        database.bodyCompositionDao().deleteById(id)
+    }
+
+    fun getCompositionSnapshotsBetween(start: Long, end: Long): Flow<List<BodyCompositionSnapshot>> =
+        database.bodyCompositionDao().getSnapshotsBetween(start, end)
 
     // ----------------------------------------------------
     // Exercises
@@ -209,6 +253,30 @@ class GymRepository(
             database.templateDao().deleteTemplate(template)
             database.templateDao().deleteExercisesForTemplate(templateId)
         }
+    }
+
+    suspend fun addExerciseToTemplate(
+        templateId: String,
+        exerciseId: String,
+        targetSets: Int = 3,
+        targetReps: String = "8-12",
+        targetWeight: Double? = null
+    ) = withContext(Dispatchers.IO) {
+        val currentExercises = database.templateDao().getExercisesForTemplateSync(templateId)
+        val nextOrder = currentExercises.size
+        val newTe = TemplateExercise(
+            templateId = templateId,
+            exerciseId = exerciseId,
+            orderIndex = nextOrder,
+            targetSets = targetSets,
+            targetRepRange = targetReps,
+            targetWeight = targetWeight
+        )
+        database.templateDao().insertTemplateExercise(newTe)
+    }
+
+    suspend fun removeExerciseFromTemplate(templateExerciseId: Long) = withContext(Dispatchers.IO) {
+        database.templateDao().deleteTemplateExerciseById(templateExerciseId)
     }
 
     suspend fun duplicateTemplate(templateId: String): String = withContext(Dispatchers.IO) {
@@ -464,8 +532,15 @@ class GymRepository(
         val activeSession = database.workoutSessionDao().getActiveSessionSync() ?: return@withContext null
         val exercises = database.workoutSessionDao().getSessionExercisesSync(activeSession.id)
         val allSets = database.workoutSessionDao().getSetsForSessionSync(activeSession.id)
+        // Update and save sets where weight & reps were entered
+        val validSets = allSets.map { set ->
+            if (!set.isCompleted && (set.weight ?: 0.0) > 0.0 && (set.reps ?: 0) > 0) {
+                set.copy(isCompleted = true, completedAt = System.currentTimeMillis())
+            } else set
+        }
+        validSets.forEach { database.workoutSessionDao().updateSet(it) }
 
-        val completedSets = allSets.filter { it.isCompleted }
+        val completedSets = validSets.filter { it.isCompleted && (it.weight ?: 0.0) > 0.0 && (it.reps ?: 0) > 0 }
         val totalVolume = completedSets.sumOf { it.volume }
         val totalSetsCount = completedSets.size
         val totalRepsCount = completedSets.sumOf { it.reps ?: 0 }
@@ -489,6 +564,85 @@ class GymRepository(
         database.workoutSessionDao().deleteSetsForSession(active.id)
         database.workoutSessionDao().deleteSessionExercisesForSession(active.id)
         database.workoutSessionDao().deleteSession(active.id)
+    }
+
+    suspend fun logCompletedExerciseSession(
+        exerciseId: String,
+        sessionName: String,
+        setsInput: List<QuickSetInput>
+    ): WorkoutSession = withContext(Dispatchers.IO) {
+        val exercise = database.exerciseDao().getExerciseByIdSync(exerciseId)
+        val sessionId = UUID.randomUUID().toString()
+        val now = System.currentTimeMillis()
+
+        // Valid sets must have weight > 0 and reps > 0
+        val validSets = setsInput.filter { (it.weight ?: 0.0) > 0.0 && (it.reps ?: 0) > 0 }
+        val totalVolume = validSets.sumOf { (it.weight ?: 0.0) * (it.reps ?: 0) }
+        val totalReps = validSets.sumOf { it.reps ?: 0 }
+        val totalSets = validSets.size
+
+        val durationSec = (validSets.size * 180L).coerceAtLeast(300L)
+        val startTime = now - (durationSec * 1000L)
+
+        val session = WorkoutSession(
+            id = sessionId,
+            name = sessionName,
+            startTime = startTime,
+            endTime = now,
+            durationSeconds = durationSec,
+            totalVolume = totalVolume,
+            totalSets = totalSets,
+            totalReps = totalReps,
+            isCompleted = true
+        )
+        database.workoutSessionDao().insertSession(session)
+
+        val sessionExId = UUID.randomUUID().toString()
+        val sessionExercise = SessionExercise(
+            id = sessionExId,
+            sessionId = sessionId,
+            exerciseId = exerciseId,
+            exerciseName = exercise?.name ?: "Exercise",
+            primaryMuscleGroup = exercise?.primaryMuscleGroup ?: "Other",
+            imagePath = exercise?.imagePath,
+            orderIndex = 0
+        )
+        database.workoutSessionDao().insertSessionExercise(sessionExercise)
+
+        val dbSets = validSets.mapIndexed { idx, s ->
+            val estimated1RM = if (s.weight != null && s.reps != null && s.reps > 0) {
+                s.weight * (1.0 + (s.reps / 30.0))
+            } else null
+            WorkoutSet(
+                id = UUID.randomUUID().toString(),
+                sessionExerciseId = sessionExId,
+                sessionId = sessionId,
+                setNumber = idx + 1,
+                weight = s.weight,
+                reps = s.reps,
+                weightUnit = s.weightUnit,
+                isCompleted = true,
+                completedAt = now
+            )
+        }
+        database.workoutSessionDao().insertSets(dbSets)
+
+        session
+    }
+
+    fun getCompletedExerciseIdsToday(): Flow<List<String>> {
+        val cal = java.util.Calendar.getInstance()
+        cal.set(java.util.Calendar.HOUR_OF_DAY, 0)
+        cal.set(java.util.Calendar.MINUTE, 0)
+        cal.set(java.util.Calendar.SECOND, 0)
+        cal.set(java.util.Calendar.MILLISECOND, 0)
+        val start = cal.timeInMillis
+        val end = start + (24L * 3600 * 1000)
+        return database.workoutSessionDao().getCompletedExerciseIdsBetween(start, end)
+    }
+
+    fun getCompletedSessionsBetween(start: Long, end: Long): Flow<List<WorkoutSession>> {
+        return database.workoutSessionDao().getCompletedSessionsBetween(start, end)
     }
 
     // ----------------------------------------------------

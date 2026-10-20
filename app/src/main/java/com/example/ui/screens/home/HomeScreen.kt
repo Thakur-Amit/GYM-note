@@ -11,6 +11,7 @@ import androidx.compose.foundation.layout.Column
 import androidx.compose.foundation.layout.PaddingValues
 import androidx.compose.foundation.layout.Row
 import androidx.compose.foundation.layout.Spacer
+import androidx.compose.foundation.layout.fillMaxHeight
 import androidx.compose.foundation.layout.fillMaxSize
 import androidx.compose.foundation.layout.fillMaxWidth
 import androidx.compose.foundation.layout.height
@@ -54,10 +55,12 @@ import com.example.ui.components.GymGradientButton
 import com.example.ui.components.GymSecondaryButton
 import com.example.ui.components.ProgressRingIndicator
 import com.example.ui.screens.progress.AddWeightDialog
+import com.example.ui.theme.AccentError
 import com.example.ui.theme.AccentWarning
 import com.example.ui.theme.BackgroundDark
 import com.example.ui.theme.CardBentoBorder
 import com.example.ui.theme.CardBentoDark
+import com.example.ui.theme.ElevatedSurface
 import com.example.ui.theme.MutedText
 import com.example.ui.theme.NeonCyan
 import com.example.ui.theme.NeonEmerald
@@ -75,7 +78,9 @@ fun HomeScreen(
     onNavigateToProgress: () -> Unit,
     onNavigateToReports: () -> Unit,
     onNavigateToBodyWeight: () -> Unit,
-    onNavigateToProfile: () -> Unit
+    onNavigateToProfile: () -> Unit,
+    onNavigateToRoutineDetail: (String) -> Unit = {},
+    onNavigateToBodyDetails: () -> Unit = {}
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     var showQuickWeightDialog by remember { mutableStateOf(false) }
@@ -88,14 +93,12 @@ fun HomeScreen(
         contentPadding = PaddingValues(horizontal = 20.dp, vertical = 20.dp),
         verticalArrangement = Arrangement.spacedBy(18.dp)
     ) {
-        // 1. Top Bar: Title "Workouts" with Tune & Plus circular buttons (Image 2)
+        // 1. Top Bar: Clean Title "Workouts"
         item {
-            Row(
+            Box(
                 modifier = Modifier
                     .fillMaxWidth()
-                    .padding(top = 4.dp, bottom = 4.dp),
-                horizontalArrangement = Arrangement.SpaceBetween,
-                verticalAlignment = Alignment.CenterVertically
+                    .padding(top = 8.dp, bottom = 4.dp)
             ) {
                 Text(
                     text = "Workouts",
@@ -105,46 +108,6 @@ fun HomeScreen(
                         fontSize = 36.sp
                     )
                 )
-
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
-                    // Filter / Options button
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(CardBentoDark)
-                            .border(1.dp, CardBentoBorder, CircleShape)
-                            .clickable(onClick = onNavigateToProgress),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = "Options",
-                            tint = PrimaryText,
-                            modifier = Modifier.size(20.dp)
-                        )
-                    }
-
-                    // Add Workout Button
-                    Box(
-                        modifier = Modifier
-                            .size(44.dp)
-                            .clip(CircleShape)
-                            .background(PrimaryPurple)
-                            .clickable {
-                                viewModel.startAdHocWorkout(onNavigateToActiveWorkout)
-                            }
-                            .testTag("home_add_workout_top_btn"),
-                        contentAlignment = Alignment.Center
-                    ) {
-                        Icon(
-                            imageVector = Icons.Default.Add,
-                            contentDescription = "Start Workout",
-                            tint = Color.White,
-                            modifier = Modifier.size(22.dp)
-                        )
-                    }
-                }
             }
         }
 
@@ -192,116 +155,73 @@ fun HomeScreen(
             }
         }
 
-        // 2. Top Hero Card: High-Impact Workout Banner Artwork matching reference UI
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(185.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .border(1.dp, PrimaryPurple.copy(alpha = 0.45f), RoundedCornerShape(24.dp))
-                    .clickable {
-                        viewModel.startRoutine(state.routine1.templateId, onNavigateToActiveWorkout)
-                    }
-                    .testTag("home_hero_card")
-            ) {
-                // Background athletic photo art
-                Image(
-                    painter = painterResource(id = R.drawable.img_home_hero),
-                    contentDescription = "Workout Hero",
-                    modifier = Modifier.fillMaxSize(),
-                    contentScale = ContentScale.Crop
-                )
-
-                // High contrast dark gradient scrim
-                Box(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .background(
-                            Brush.verticalGradient(
-                                colors = listOf(
-                                    Color.Transparent,
-                                    Color(0x9909090B),
-                                    Color(0xF509090B)
-                                )
-                            )
-                        )
-                )
-
-                // Overlay Content
-                Column(
-                    modifier = Modifier
-                        .fillMaxSize()
-                        .padding(20.dp),
-                    verticalArrangement = Arrangement.SpaceBetween
+        // In-app Body Measurement Reminder Card (Volume Lifted card shape, above all cards)
+        if (state.bodyMeasurementReminder.showBanner) {
+            item {
+                BentoCard(
+                    modifier = Modifier.fillMaxWidth(),
+                    cornerRadius = 24.dp,
+                    onClick = onNavigateToBodyDetails,
+                    onSettingsClick = onNavigateToBodyDetails
                 ) {
-                    // Badge
-                    Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(12.dp))
-                            .background(PrimaryPurple.copy(alpha = 0.9f))
-                            .padding(horizontal = 10.dp, vertical = 5.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp)
-                    ) {
-                        Box(
-                            modifier = Modifier
-                                .size(6.dp)
-                                .clip(CircleShape)
-                                .background(Color.White)
-                        )
-                        Text(
-                            text = "FEATURED SPLIT",
-                            style = MaterialTheme.typography.labelSmall.copy(
-                                fontWeight = FontWeight.Bold,
-                                color = Color.White,
-                                fontSize = 11.sp,
-                                letterSpacing = 0.5.sp
-                            )
-                        )
-                    }
-
-                    // Bottom info & launch button
-                    Row(
-                        modifier = Modifier.fillMaxWidth(),
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                        verticalAlignment = Alignment.Bottom
-                    ) {
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = state.routine1.title,
-                                style = MaterialTheme.typography.titleLarge.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = PrimaryText,
-                                    fontSize = 22.sp
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = state.routine1.scheduleSubtitle,
-                                style = MaterialTheme.typography.bodyMedium.copy(
-                                    color = SecondaryText,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 13.sp
-                                ),
-                                maxLines = 1
+                    Box(modifier = Modifier.fillMaxWidth()) {
+                        val fillPct = state.bodyMeasurementReminder.completionPercentage.coerceIn(0f, 1f)
+                        if (fillPct > 0f) {
+                            Box(
+                                modifier = Modifier
+                                    .matchParentSize()
+                                    .fillMaxWidth(fillPct)
+                                    .clip(RoundedCornerShape(20.dp))
+                                    .background(Color(0xFF10B981).copy(alpha = 0.20f))
                             )
                         }
 
-                        // Circular play button
-                        Box(
+                        Row(
                             modifier = Modifier
-                                .size(46.dp)
-                                .clip(CircleShape)
-                                .background(PrimaryPurple),
-                            contentAlignment = Alignment.Center
+                                .fillMaxWidth()
+                                .padding(vertical = 4.dp),
+                            horizontalArrangement = Arrangement.SpaceBetween,
+                            verticalAlignment = Alignment.CenterVertically
                         ) {
-                            Icon(
-                                imageVector = Icons.Default.PlayArrow,
-                                contentDescription = "Start Workout",
-                                tint = Color.White,
-                                modifier = Modifier.size(26.dp)
-                            )
+                            Column(modifier = Modifier.weight(1f)) {
+                                Text(
+                                    text = "Update body details",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.ExtraBold,
+                                        color = PrimaryText,
+                                        fontSize = 18.sp
+                                    )
+                                )
+                                Spacer(modifier = Modifier.height(4.dp))
+                                Text(
+                                    text = if (fillPct > 0f) {
+                                        "${(fillPct * 100).toInt()}% completed • ${state.bodyMeasurementReminder.subtitle}"
+                                    } else {
+                                        "Tap to enter body measurements"
+                                    },
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = if (fillPct > 0f) NeonEmerald else SecondaryText,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 12.sp
+                                    )
+                                )
+                            }
+
+                            Box(
+                                modifier = Modifier
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(ElevatedSurface)
+                                    .padding(horizontal = 10.dp, vertical = 6.dp)
+                            ) {
+                                Text(
+                                    text = "${(fillPct * 100).toInt()}%",
+                                    style = MaterialTheme.typography.labelSmall.copy(
+                                        color = if (fillPct > 0f) NeonEmerald else PrimaryPurple,
+                                        fontWeight = FontWeight.ExtraBold,
+                                        fontSize = 13.sp
+                                    )
+                                )
+                            }
                         }
                     }
                 }
@@ -321,7 +241,12 @@ fun HomeScreen(
                         .height(195.dp),
                     cornerRadius = 24.dp,
                     onClick = {
-                        viewModel.startRoutine(state.routine1.templateId, onNavigateToActiveWorkout)
+                        val tmplId = state.routine1.templateId
+                        if (tmplId != null) {
+                            onNavigateToRoutineDetail(tmplId)
+                        } else {
+                            onNavigateToExercises()
+                        }
                     },
                     onSettingsClick = onNavigateToExercises
                 ) {
@@ -338,11 +263,21 @@ fun HomeScreen(
 
                         Column {
                             Text(
-                                text = state.routine1.title,
+                                text = state.routine1.dayLabel.uppercase(),
+                                style = MaterialTheme.typography.labelSmall.copy(
+                                    fontWeight = FontWeight.ExtraBold,
+                                    color = PrimaryPurple,
+                                    fontSize = 12.sp,
+                                    letterSpacing = 0.5.sp
+                                )
+                            )
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "${state.routine1.dayLabel} • ${state.routine1.title}",
                                 style = MaterialTheme.typography.titleMedium.copy(
                                     fontWeight = FontWeight.ExtraBold,
                                     color = PrimaryText,
-                                    fontSize = 19.sp
+                                    fontSize = 17.sp
                                 ),
                                 maxLines = 1
                             )
@@ -361,7 +296,7 @@ fun HomeScreen(
                 }
 
                 // Card 2: Real Body Weight
-                val unit = state.userProfile.preferredWeightUnit
+                val unit = "kg"
 
                 BentoCard(
                     modifier = Modifier
@@ -379,9 +314,9 @@ fun HomeScreen(
                             Text(
                                 text = if (state.currentWeight != null) "${state.currentWeight?.roundToInt()}" else "--",
                                 style = MaterialTheme.typography.headlineLarge.copy(
-                                    fontWeight = FontWeight.ExtraBold,
+                                    fontWeight = FontWeight.Black,
                                     color = NeonCyan,
-                                    fontSize = 38.sp
+                                    fontSize = 52.sp
                                 )
                             )
                             if (state.currentWeight != null) {
@@ -391,7 +326,7 @@ fun HomeScreen(
                                     style = MaterialTheme.typography.titleMedium.copy(
                                         color = SecondaryText,
                                         fontWeight = FontWeight.Bold,
-                                        fontSize = 16.sp
+                                        fontSize = 18.sp
                                     ),
                                     modifier = Modifier.padding(bottom = 6.dp)
                                 )
@@ -408,21 +343,38 @@ fun HomeScreen(
                                 )
                             )
                             Spacer(modifier = Modifier.height(4.dp))
-                            Text(
-                                text = state.weightSubtitle,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = if (state.currentWeight == null) NeonCyan else SecondaryText,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 12.sp
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.SpaceBetween,
+                                verticalAlignment = Alignment.CenterVertically
+                            ) {
+                                Text(
+                                    text = state.weightSubtitle,
+                                    style = MaterialTheme.typography.bodySmall.copy(
+                                        color = if (state.currentWeight == null) NeonCyan else SecondaryText,
+                                        fontWeight = FontWeight.Medium,
+                                        fontSize = 12.sp
+                                    )
                                 )
-                            )
+                                if (state.weightDeltaStr != null) {
+                                    val isPos = state.weightDeltaPositive == true
+                                    Text(
+                                        text = state.weightDeltaStr!!,
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 11.sp,
+                                            color = if (isPos) NeonEmerald else AccentError
+                                        )
+                                    )
+                                }
+                            }
                         }
                     }
                 }
             }
         }
 
-        // 4. Center Bento Card (Activity Dot Heatmap + Routine 2)
+        // 4. Center Bento Card (Activity Dot Heatmap)
         item {
             BentoCard(
                 modifier = Modifier.fillMaxWidth(),
@@ -430,7 +382,6 @@ fun HomeScreen(
                 onSettingsClick = onNavigateToReports
             ) {
                 Column {
-                    // Header label above dot heatmap
                     Row(
                         modifier = Modifier.fillMaxWidth(),
                         horizontalArrangement = Arrangement.SpaceBetween,
@@ -456,62 +407,12 @@ fun HomeScreen(
 
                     Spacer(modifier = Modifier.height(14.dp))
 
-                    // Activity Heatmap Dot Matrix
+                    // Activity Heatmap Dot Matrix (with enlarged dots)
                     ActivityDotHeatmap(
                         completedWorkoutDays = state.completedWorkoutDays,
                         activeColor = NeonEmerald,
                         modifier = Modifier.fillMaxWidth()
                     )
-
-                    Spacer(modifier = Modifier.height(26.dp))
-
-                    // Routine 2 Item (e.g. Pull Day / Real second routine)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .clip(RoundedCornerShape(14.dp))
-                            .clickable {
-                                viewModel.startRoutine(state.routine2.templateId, onNavigateToActiveWorkout)
-                            },
-                        verticalAlignment = Alignment.CenterVertically
-                    ) {
-                        ProgressRingIndicator(
-                            number = state.routine2.number,
-                            progress = state.routine2.progress,
-                            size = 56.dp,
-                            ringColor = NeonEmerald
-                        )
-
-                        Spacer(modifier = Modifier.width(16.dp))
-
-                        Column(modifier = Modifier.weight(1f)) {
-                            Text(
-                                text = state.routine2.title,
-                                style = MaterialTheme.typography.titleMedium.copy(
-                                    fontWeight = FontWeight.ExtraBold,
-                                    color = PrimaryText,
-                                    fontSize = 19.sp
-                                )
-                            )
-                            Spacer(modifier = Modifier.height(2.dp))
-                            Text(
-                                text = state.routine2.scheduleSubtitle,
-                                style = MaterialTheme.typography.bodySmall.copy(
-                                    color = SecondaryText,
-                                    fontWeight = FontWeight.Medium,
-                                    fontSize = 12.sp
-                                ),
-                                maxLines = 1
-                            )
-                        }
-
-                        Icon(
-                            imageVector = Icons.Default.Tune,
-                            contentDescription = null,
-                            tint = MutedText,
-                            modifier = Modifier.size(18.dp)
-                        )
-                    }
                 }
             }
         }
@@ -578,48 +479,11 @@ fun HomeScreen(
                 }
             }
         }
-
-        // 6. Full-width Quick Add Tile with Bold Text
-        item {
-            Box(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .height(95.dp)
-                    .clip(RoundedCornerShape(24.dp))
-                    .background(CardBentoDark)
-                    .border(1.dp, PrimaryPurple.copy(alpha = 0.45f), RoundedCornerShape(24.dp))
-                    .clickable {
-                        viewModel.startAdHocWorkout(onNavigateToActiveWorkout)
-                    }
-                    .testTag("home_quick_add_tile"),
-                contentAlignment = Alignment.Center
-            ) {
-                Row(
-                    verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(10.dp)
-                ) {
-                    Icon(
-                        imageVector = Icons.Default.Add,
-                        contentDescription = "New Workout",
-                        tint = PrimaryPurple,
-                        modifier = Modifier.size(32.dp)
-                    )
-                    Text(
-                        text = "Start Empty Workout",
-                        style = MaterialTheme.typography.titleMedium.copy(
-                            fontWeight = FontWeight.Bold,
-                            color = PrimaryText,
-                            fontSize = 17.sp
-                        )
-                    )
-                }
-            }
-        }
     }
 
     if (showQuickWeightDialog) {
         AddWeightDialog(
-            unit = state.userProfile.preferredWeightUnit,
+            unit = "kg",
             heightCm = state.userProfile.heightCm,
             age = state.userProfile.calculateAge(),
             onConfirm = { weight, bodyFat, muscleMass, notes ->

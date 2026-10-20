@@ -17,8 +17,14 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
 
     // Sub-screens
     object ActiveWorkout : Screen("workout/active", "Active Workout")
-    object ExerciseDetail : Screen("exercise/{exerciseId}", "Exercise Details") {
-        fun createRoute(exerciseId: String) = "exercise/$exerciseId"
+    object RoutineDetail : Screen("routine/{templateId}", "Routine Details") {
+        fun createRoute(templateId: String) = "routine/$templateId"
+    }
+    object ExerciseDetail : Screen("exercise/{exerciseId}?fromWorkout={fromWorkout}&routineName={routineName}", "Exercise Details") {
+        fun createRoute(exerciseId: String, fromWorkout: Boolean = false, routineName: String? = null): String {
+            val encodedName = java.net.URLEncoder.encode(routineName ?: "", "UTF-8")
+            return "exercise/$exerciseId?fromWorkout=$fromWorkout&routineName=$encodedName"
+        }
     }
     object ExerciseEditor : Screen("exercise/editor?exerciseId={exerciseId}", "Exercise Editor") {
         fun createRoute(exerciseId: String? = null) = if (exerciseId != null) "exercise/editor?exerciseId=$exerciseId" else "exercise/editor"
@@ -28,6 +34,8 @@ sealed class Screen(val route: String, val title: String, val icon: ImageVector?
     }
     object ScheduleEditor : Screen("schedule/editor", "Schedule Editor")
     object BodyWeight : Screen("bodyweight", "Body Weight")
+    object BodyMeasurements : Screen("body/measurements", "Body Measurements")
+    object ComprehensiveBodyDetails : Screen("body/comprehensive_details", "Body Details")
     object Reports : Screen("reports", "Progress Reports")
     object BackupRestore : Screen("backup_restore", "Backup & Restore")
 

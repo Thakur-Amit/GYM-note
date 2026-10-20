@@ -60,6 +60,7 @@ import com.example.ui.theme.SecondaryText
 fun PlanScreen(
     viewModel: PlanViewModel,
     onNavigateToActiveWorkout: () -> Unit,
+    onNavigateToRoutineDetail: (String) -> Unit,
     onNavigateToTemplateEditor: (String?) -> Unit,
     onNavigateToScheduleEditor: () -> Unit
 ) {
@@ -150,8 +151,8 @@ fun PlanScreen(
                 items(templatesToShow) { template ->
                     TemplateItemCardImage1(
                         template = template,
-                        onStartWorkout = {
-                            viewModel.startWorkout(template.id, onNavigateToActiveWorkout)
+                        onOpenRoutine = {
+                            onNavigateToRoutineDetail(template.id)
                         },
                         onEdit = { onNavigateToTemplateEditor(template.id) },
                         onDuplicate = { viewModel.duplicateTemplate(template.id) },
@@ -181,7 +182,7 @@ fun PlanScreen(
 @Composable
 fun TemplateItemCardImage1(
     template: WorkoutTemplate,
-    onStartWorkout: () -> Unit,
+    onOpenRoutine: () -> Unit,
     onEdit: () -> Unit,
     onDuplicate: () -> Unit,
     onDelete: () -> Unit
@@ -190,7 +191,7 @@ fun TemplateItemCardImage1(
         backgroundColor = PrimaryCard,
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onStartWorkout)
+            .clickable(onClick = onOpenRoutine)
             .testTag("template_card_${template.id}")
     ) {
         Row(
@@ -200,6 +201,18 @@ fun TemplateItemCardImage1(
             verticalAlignment = Alignment.CenterVertically
         ) {
             Column(modifier = Modifier.weight(1f)) {
+                if (!template.dayOfWeek.isNullOrBlank()) {
+                    Text(
+                        text = template.dayOfWeek.uppercase(),
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            fontWeight = FontWeight.ExtraBold,
+                            color = PrimaryPurple,
+                            fontSize = 11.sp,
+                            letterSpacing = 0.5.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(2.dp))
+                }
                 Text(
                     text = template.name,
                     style = MaterialTheme.typography.titleMedium.copy(

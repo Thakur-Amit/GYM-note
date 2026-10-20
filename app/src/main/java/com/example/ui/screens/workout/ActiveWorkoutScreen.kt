@@ -27,6 +27,7 @@ import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Add
 import androidx.compose.material.icons.filled.Check
 import androidx.compose.material.icons.filled.ChevronRight
+import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.MoreVert
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.DropdownMenu
@@ -222,6 +223,7 @@ fun ActiveWorkoutScreen(
                     isCompleted = isCompleted,
                     onClick = { activeExerciseIndex = index },
                     onAddSet = { viewModel.addSet(sessionExercise.exercise.id) },
+                    onDeleteSet = { setId -> viewModel.removeSet(setId) },
                     onCompleteSet = { setId, done -> viewModel.completeSet(setId, done) },
                     onUpdateSet = { set, w, r -> viewModel.updateSetValues(set, w, r) }
                 )
@@ -279,6 +281,7 @@ fun ActiveExerciseCardImage1(
     isCompleted: Boolean,
     onClick: () -> Unit,
     onAddSet: () -> Unit,
+    onDeleteSet: (String) -> Unit,
     onCompleteSet: (String, Boolean) -> Unit,
     onUpdateSet: (WorkoutSet, Double?, Int?) -> Unit
 ) {
@@ -329,10 +332,7 @@ fun ActiveExerciseCardImage1(
                     )
                 }
 
-                // Action / Status Badge matching Image 1 Screen 8:
-                // Completed -> Cyan checkmark circle
-                // Active -> Purple play circle
-                // Upcoming -> Right chevron
+                // Action / Status Badge
                 when {
                     isCompleted -> {
                         Box(
@@ -377,13 +377,15 @@ fun ActiveExerciseCardImage1(
                             .padding(horizontal = 4.dp, vertical = 4.dp),
                         verticalAlignment = Alignment.CenterVertically
                     ) {
-                        Text("SET", style = MaterialTheme.typography.labelSmall.copy(color = MutedText, fontWeight = FontWeight.Bold), modifier = Modifier.width(36.dp))
+                        Text("SET", style = MaterialTheme.typography.labelSmall.copy(color = MutedText, fontWeight = FontWeight.Bold), modifier = Modifier.width(32.dp))
                         Spacer(modifier = Modifier.weight(1f))
-                        Text("KG", style = MaterialTheme.typography.labelSmall.copy(color = MutedText, fontWeight = FontWeight.Bold), modifier = Modifier.width(80.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("REPS", style = MaterialTheme.typography.labelSmall.copy(color = MutedText, fontWeight = FontWeight.Bold), modifier = Modifier.width(80.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
-                        Spacer(modifier = Modifier.width(8.dp))
-                        Text("DONE", style = MaterialTheme.typography.labelSmall.copy(color = MutedText, fontWeight = FontWeight.Bold), modifier = Modifier.width(40.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Text("KG", style = MaterialTheme.typography.labelSmall.copy(color = MutedText, fontWeight = FontWeight.Bold), modifier = Modifier.width(72.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("REPS", style = MaterialTheme.typography.labelSmall.copy(color = MutedText, fontWeight = FontWeight.Bold), modifier = Modifier.width(72.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Spacer(modifier = Modifier.width(6.dp))
+                        Text("DONE", style = MaterialTheme.typography.labelSmall.copy(color = MutedText, fontWeight = FontWeight.Bold), modifier = Modifier.width(36.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
+                        Spacer(modifier = Modifier.width(4.dp))
+                        Text("DEL", style = MaterialTheme.typography.labelSmall.copy(color = MutedText, fontWeight = FontWeight.Bold), modifier = Modifier.width(32.dp), textAlign = androidx.compose.ui.text.style.TextAlign.Center)
                     }
 
                     Spacer(modifier = Modifier.height(4.dp))
@@ -401,7 +403,7 @@ fun ActiveExerciseCardImage1(
                             Text(
                                 text = "${set.setNumber}",
                                 style = MaterialTheme.typography.titleMedium.copy(fontWeight = FontWeight.Bold, color = PrimaryText),
-                                modifier = Modifier.width(36.dp)
+                                modifier = Modifier.width(32.dp)
                             )
 
                             Spacer(modifier = Modifier.weight(1f))
@@ -424,10 +426,10 @@ fun ActiveExerciseCardImage1(
                                     focusedTextColor = PrimaryText,
                                     unfocusedTextColor = PrimaryText
                                 ),
-                                modifier = Modifier.width(80.dp).height(44.dp)
+                                modifier = Modifier.width(72.dp).height(44.dp)
                             )
 
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
 
                             OutlinedTextField(
                                 value = repsStr,
@@ -447,10 +449,10 @@ fun ActiveExerciseCardImage1(
                                     focusedTextColor = PrimaryText,
                                     unfocusedTextColor = PrimaryText
                                 ),
-                                modifier = Modifier.width(80.dp).height(44.dp)
+                                modifier = Modifier.width(72.dp).height(44.dp)
                             )
 
-                            Spacer(modifier = Modifier.width(8.dp))
+                            Spacer(modifier = Modifier.width(6.dp))
 
                             Box(
                                 modifier = Modifier
@@ -462,8 +464,22 @@ fun ActiveExerciseCardImage1(
                             ) {
                                 Icon(
                                     imageVector = Icons.Default.Check,
-                                    contentDescription = null,
+                                    contentDescription = "Complete set",
                                     tint = if (set.isCompleted) Color.Black else SecondaryText,
+                                    modifier = Modifier.size(18.dp)
+                                )
+                            }
+
+                            Spacer(modifier = Modifier.width(4.dp))
+
+                            IconButton(
+                                onClick = { onDeleteSet(set.id) },
+                                modifier = Modifier.size(32.dp)
+                            ) {
+                                Icon(
+                                    imageVector = Icons.Default.Delete,
+                                    contentDescription = "Delete set",
+                                    tint = AccentError,
                                     modifier = Modifier.size(18.dp)
                                 )
                             }

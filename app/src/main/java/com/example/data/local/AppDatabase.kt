@@ -5,6 +5,8 @@ import androidx.room.Database
 import androidx.room.Room
 import androidx.room.RoomDatabase
 import androidx.sqlite.db.SupportSQLiteDatabase
+import com.example.data.model.BodyCompositionSnapshot
+import com.example.data.model.BodyMeasurementEntry
 import com.example.data.model.BodyWeightEntry
 import com.example.data.model.Exercise
 import com.example.data.model.ExerciseType
@@ -23,10 +25,20 @@ import kotlinx.coroutines.Dispatchers
 import kotlinx.coroutines.launch
 import java.util.Calendar
 
+import androidx.room.migration.Migration
+
+val MIGRATION_3_4 = object : Migration(3, 4) {
+    override fun migrate(db: SupportSQLiteDatabase) {
+        db.execSQL("ALTER TABLE user_profile ADD COLUMN measurementReminderWeeks INTEGER NOT NULL DEFAULT 2")
+    }
+}
+
 @Database(
     entities = [
         UserProfile::class,
         BodyWeightEntry::class,
+        BodyMeasurementEntry::class,
+        BodyCompositionSnapshot::class,
         Exercise::class,
         WorkoutTemplate::class,
         TemplateExercise::class,
@@ -36,12 +48,14 @@ import java.util.Calendar
         SessionExercise::class,
         WorkoutSet::class
     ],
-    version = 2,
+    version = 4,
     exportSchema = false
 )
 abstract class AppDatabase : RoomDatabase() {
     abstract fun userDao(): UserDao
     abstract fun bodyWeightDao(): BodyWeightDao
+    abstract fun bodyMeasurementDao(): BodyMeasurementDao
+    abstract fun bodyCompositionDao(): BodyCompositionDao
     abstract fun exerciseDao(): ExerciseDao
     abstract fun templateDao(): TemplateDao
     abstract fun scheduleDao(): ScheduleDao
@@ -59,6 +73,7 @@ abstract class AppDatabase : RoomDatabase() {
                     "gym_tracker.db"
                 )
                     .addCallback(DatabaseCallback())
+                    .addMigrations(MIGRATION_3_4)
                     .fallbackToDestructiveMigration()
                     .build()
                 INSTANCE = instance
@@ -294,6 +309,7 @@ suspend fun seedInitialData(database: AppDatabase) {
             id = "template_push",
             name = "Push Day",
             description = "Chest, Shoulders & Triceps hypertrophy focus",
+            dayOfWeek = "Monday / Thursday",
             isCustom = false,
             orderIndex = 0
         ),
@@ -301,6 +317,7 @@ suspend fun seedInitialData(database: AppDatabase) {
             id = "template_pull",
             name = "Pull Day",
             description = "Back, Biceps & Posterior chain focus",
+            dayOfWeek = "Tuesday / Friday",
             isCustom = false,
             orderIndex = 1
         ),
@@ -308,6 +325,7 @@ suspend fun seedInitialData(database: AppDatabase) {
             id = "template_legs",
             name = "Leg Day",
             description = "Quads, Hamstrings, Glutes & Calves intensity",
+            dayOfWeek = "Wednesday / Saturday",
             isCustom = false,
             orderIndex = 2
         ),
@@ -315,6 +333,7 @@ suspend fun seedInitialData(database: AppDatabase) {
             id = "template_upper",
             name = "Upper Body",
             description = "Comprehensive upper body compound circuit",
+            dayOfWeek = "Split Day",
             isCustom = false,
             orderIndex = 3
         ),
@@ -322,6 +341,7 @@ suspend fun seedInitialData(database: AppDatabase) {
             id = "template_lower",
             name = "Lower Body",
             description = "Lower body power and mobility",
+            dayOfWeek = "Split Day",
             isCustom = false,
             orderIndex = 4
         ),
@@ -329,6 +349,7 @@ suspend fun seedInitialData(database: AppDatabase) {
             id = "template_full_body",
             name = "Full Body",
             description = "Total-body compound strength session",
+            dayOfWeek = "Weekend / Extra",
             isCustom = false,
             orderIndex = 5
         )

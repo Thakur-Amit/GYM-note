@@ -187,11 +187,15 @@ fun ActivityDotHeatmap(
 
     Row(
         modifier = modifier.fillMaxWidth(),
-        horizontalArrangement = Arrangement.SpaceBetween
+        horizontalArrangement = Arrangement.spacedBy(8.dp)
     ) {
         monthsData.forEach { (mName, daysInMonth, daysActive) ->
             Column(
-                modifier = Modifier.weight(1f),
+                modifier = Modifier
+                    .weight(1f)
+                    .clip(RoundedCornerShape(10.dp))
+                    .background(Color(0xFF151620))
+                    .padding(vertical = 8.dp, horizontal = 4.dp),
                 horizontalAlignment = Alignment.CenterHorizontally
             ) {
                 Text(
@@ -203,22 +207,21 @@ fun ActivityDotHeatmap(
                     )
                 )
 
-                Spacer(modifier = Modifier.height(10.dp))
+                Spacer(modifier = Modifier.height(8.dp))
 
-                // 4 rows x 7 cols = 28 dots (representative activity grid matching Image 2)
                 Column(
-                    verticalArrangement = Arrangement.spacedBy(5.dp),
+                    verticalArrangement = Arrangement.spacedBy(3.dp),
                     horizontalAlignment = Alignment.CenterHorizontally
                 ) {
                     for (row in 0..3) {
-                        Row(horizontalArrangement = Arrangement.spacedBy(5.dp)) {
+                        Row(horizontalArrangement = Arrangement.spacedBy(3.dp)) {
                             for (col in 0..6) {
                                 val dayIndex = row * 7 + col
                                 val isActive = if (dayIndex < daysActive.size) daysActive[dayIndex] else false
 
                                 Box(
                                     modifier = Modifier
-                                        .size(6.dp)
+                                        .size(6.5.dp)
                                         .clip(CircleShape)
                                         .background(
                                             if (isActive) activeColor else Color(0xFF26262E)

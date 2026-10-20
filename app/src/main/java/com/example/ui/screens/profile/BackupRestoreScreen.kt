@@ -206,33 +206,47 @@ fun BackupRestoreScreen(
                             style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText)
                         )
                         Spacer(modifier = Modifier.height(14.dp))
-                        Row(
-                            modifier = Modifier.fillMaxWidth(),
-                            horizontalArrangement = Arrangement.spacedBy(10.dp)
-                        ) {
+                        Column(verticalArrangement = Arrangement.spacedBy(10.dp)) {
+                            Row(
+                                modifier = Modifier.fillMaxWidth(),
+                                horizontalArrangement = Arrangement.spacedBy(10.dp)
+                            ) {
+                                GymSecondaryButton(
+                                    text = "Workouts CSV",
+                                    icon = Icons.Default.Download,
+                                    onClick = {
+                                        viewModel.generateWorkoutsCsv()
+                                        if (state.exportWorkoutsCsvString != null) {
+                                            clipboardManager.setText(AnnotatedString(state.exportWorkoutsCsvString!!))
+                                            Toast.makeText(context, "Workouts CSV copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                                GymSecondaryButton(
+                                    text = "Weight CSV",
+                                    icon = Icons.Default.Download,
+                                    onClick = {
+                                        viewModel.generateWeightCsv()
+                                        if (state.exportWeightCsvString != null) {
+                                            clipboardManager.setText(AnnotatedString(state.exportWeightCsvString!!))
+                                            Toast.makeText(context, "Weight CSV copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                        }
+                                    },
+                                    modifier = Modifier.weight(1f)
+                                )
+                            }
                             GymSecondaryButton(
-                                text = "Workouts CSV",
+                                text = "Body Measurements CSV",
                                 icon = Icons.Default.Download,
                                 onClick = {
-                                    viewModel.generateWorkoutsCsv()
-                                    if (state.exportWorkoutsCsvString != null) {
-                                        clipboardManager.setText(AnnotatedString(state.exportWorkoutsCsvString!!))
-                                        Toast.makeText(context, "Workouts CSV copied to clipboard!", Toast.LENGTH_SHORT).show()
+                                    viewModel.generateMeasurementsCsv()
+                                    if (state.exportMeasurementsCsvString != null) {
+                                        clipboardManager.setText(AnnotatedString(state.exportMeasurementsCsvString!!))
+                                        Toast.makeText(context, "Body Measurements CSV copied to clipboard!", Toast.LENGTH_SHORT).show()
                                     }
                                 },
-                                modifier = Modifier.weight(1f)
-                            )
-                            GymSecondaryButton(
-                                text = "Weight CSV",
-                                icon = Icons.Default.Download,
-                                onClick = {
-                                    viewModel.generateWeightCsv()
-                                    if (state.exportWeightCsvString != null) {
-                                        clipboardManager.setText(AnnotatedString(state.exportWeightCsvString!!))
-                                        Toast.makeText(context, "Weight CSV copied to clipboard!", Toast.LENGTH_SHORT).show()
-                                    }
-                                },
-                                modifier = Modifier.weight(1f)
+                                modifier = Modifier.fillMaxWidth()
                             )
                         }
                     }

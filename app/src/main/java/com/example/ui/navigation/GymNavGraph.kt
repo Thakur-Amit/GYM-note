@@ -33,6 +33,7 @@ import androidx.navigation.compose.currentBackStackEntryAsState
 import androidx.navigation.compose.rememberNavController
 import androidx.navigation.navArgument
 import com.example.GymApplication
+import com.example.ui.screens.body.ComprehensiveBodyDetailsScreen
 import com.example.ui.screens.exercises.ExerciseDetailScreen
 import com.example.ui.screens.exercises.ExerciseEditorScreen
 import com.example.ui.screens.exercises.ExercisesScreen
@@ -41,6 +42,7 @@ import com.example.ui.screens.home.HomeScreen
 import com.example.ui.screens.home.HomeViewModel
 import com.example.ui.screens.plan.PlanScreen
 import com.example.ui.screens.plan.PlanViewModel
+import com.example.ui.screens.plan.RoutineDetailScreen
 import com.example.ui.screens.plan.ScheduleEditorScreen
 import com.example.ui.screens.plan.TemplateEditorScreen
 import com.example.ui.screens.profile.BackupRestoreScreen
@@ -175,6 +177,12 @@ fun GymAppRoot(
                     },
                     onNavigateToProfile = {
                         navController.navigate(Screen.Profile.route)
+                    },
+                    onNavigateToRoutineDetail = { templateId ->
+                        navController.navigate(Screen.RoutineDetail.createRoute(templateId))
+                    },
+                    onNavigateToBodyDetails = {
+                        navController.navigate(Screen.BodyMeasurements.route)
                     }
                 )
             }
@@ -185,6 +193,9 @@ fun GymAppRoot(
                     viewModel = planViewModel,
                     onNavigateToActiveWorkout = {
                         navController.navigate(Screen.ActiveWorkout.route)
+                    },
+                    onNavigateToRoutineDetail = { templateId ->
+                        navController.navigate(Screen.RoutineDetail.createRoute(templateId))
                     },
                     onNavigateToTemplateEditor = { templateId ->
                         navController.navigate(Screen.TemplateEditor.createRoute(templateId))
@@ -227,6 +238,9 @@ fun GymAppRoot(
                     viewModel = profileViewModel,
                     onNavigateToBackupRestore = {
                         navController.navigate(Screen.BackupRestore.route)
+                    },
+                    onNavigateToBodyMeasurements = {
+                        navController.navigate(Screen.BodyMeasurements.route)
                     }
                 )
             }
@@ -241,15 +255,58 @@ fun GymAppRoot(
                 )
             }
 
+            // Routine Detail Destination
+            composable(
+                route = Screen.RoutineDetail.route,
+                arguments = listOf(navArgument("templateId") { type = NavType.StringType })
+            ) { backStackEntry ->
+                val templateId = backStackEntry.arguments?.getString("templateId") ?: ""
+                RoutineDetailScreen(
+                    templateId = templateId,
+                    repository = repository,
+                    onNavigateBack = { navController.popBackStack() },
+                    onNavigateToExerciseDetail = { exerciseId, fromWorkout, routineName ->
+                        navController.navigate(Screen.ExerciseDetail.createRoute(exerciseId, fromWorkout, routineName))
+                    },
+                    onStartWorkout = { tmplId ->
+                        planViewModel.startWorkout(tmplId) {
+                            navController.navigate(Screen.ActiveWorkout.route)
+                        }
+                    },
+                    onEditTemplate = { tmplId ->
+                        navController.navigate(Screen.TemplateEditor.createRoute(tmplId))
+                    }
+                )
+            }
+
             // Exercise Detail Screen
             composable(
                 route = Screen.ExerciseDetail.route,
-                arguments = listOf(navArgument("exerciseId") { type = NavType.StringType })
+                arguments = listOf(
+                    navArgument("exerciseId") { type = NavType.StringType },
+                    navArgument("fromWorkout") {
+                        type = NavType.BoolType
+                        defaultValue = false
+                    },
+                    navArgument("routineName") {
+                        type = NavType.StringType
+                        defaultValue = ""
+                    }
+                )
             ) { backStackEntry ->
                 val exerciseId = backStackEntry.arguments?.getString("exerciseId") ?: ""
+                val fromWorkout = backStackEntry.arguments?.getBoolean("fromWorkout") ?: false
+                val rawRoutineName = backStackEntry.arguments?.getString("routineName") ?: ""
+                val decodedRoutineName = try {
+                    java.net.URLDecoder.decode(rawRoutineName, "UTF-8")
+                } catch (e: Exception) {
+                    rawRoutineName
+                }
                 ExerciseDetailScreen(
                     exerciseId = exerciseId,
                     viewModel = exercisesViewModel,
+                    fromWorkout = fromWorkout,
+                    routineName = decodedRoutineName,
                     onNavigateBack = { navController.popBackStack() },
                     onNavigateToEdit = { id ->
                         navController.navigate(Screen.ExerciseEditor.createRoute(id))
@@ -319,6 +376,25 @@ fun GymAppRoot(
             composable(Screen.BackupRestore.route) {
                 BackupRestoreScreen(
                     viewModel = profileViewModel,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Comprehensive Body Details Screen (BMI, U.S. Navy Body Fat %, Circumferences)
+            composable(Screen.ComprehensiveBodyDetails.route) {
+                ComprehensiveBodyDetailsScreen(
+                    repository = repository,
+                    onNavigateBack = { navController.popBackStack() }
+                )
+            }
+
+            // Body Measurements Screen (Matches user design image d3c75c30)
+            composable(Screen.BodyMeasurements.route) {
+                val bodyMeasurementsViewModel = remember {
+                    com.example.ui.screens.body.BodyMeasurementsViewModel(repository)
+                }
+                com.example.ui.screens.body.BodyMeasurementsScreen(
+                    viewModel = bodyMeasurementsViewModel,
                     onNavigateBack = { navController.popBackStack() }
                 )
             }

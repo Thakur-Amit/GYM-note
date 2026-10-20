@@ -6,6 +6,8 @@ import androidx.room.Insert
 import androidx.room.OnConflictStrategy
 import androidx.room.Query
 import androidx.room.Update
+import com.example.data.model.BodyCompositionSnapshot
+import com.example.data.model.BodyMeasurementEntry
 import com.example.data.model.BodyWeightEntry
 import com.example.data.model.Exercise
 import com.example.data.model.ScheduleDay
@@ -67,6 +69,63 @@ interface BodyWeightDao {
 
     @Query("DELETE FROM body_weight_entries")
     suspend fun deleteAll()
+}
+
+@Dao
+interface BodyMeasurementDao {
+    @Query("SELECT * FROM body_measurement_entries ORDER BY measuredAt DESC, createdAt DESC")
+    fun getAllEntries(): Flow<List<BodyMeasurementEntry>>
+
+    @Query("SELECT * FROM body_measurement_entries ORDER BY measuredAt DESC, createdAt DESC")
+    suspend fun getAllEntriesSync(): List<BodyMeasurementEntry>
+
+    @Query("SELECT * FROM body_measurement_entries ORDER BY measuredAt DESC, createdAt DESC LIMIT 1")
+    fun getLatestEntry(): Flow<BodyMeasurementEntry?>
+
+    @Query("SELECT * FROM body_measurement_entries ORDER BY measuredAt DESC, createdAt DESC LIMIT 1")
+    suspend fun getLatestEntrySync(): BodyMeasurementEntry?
+
+    @Query("SELECT * FROM body_measurement_entries WHERE measuredAt >= :start AND measuredAt <= :end ORDER BY measuredAt ASC")
+    fun getEntriesBetween(start: Long, end: Long): Flow<List<BodyMeasurementEntry>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(entry: BodyMeasurementEntry): Long
+
+    @Update
+    suspend fun update(entry: BodyMeasurementEntry)
+
+    @Delete
+    suspend fun delete(entry: BodyMeasurementEntry)
+
+    @Query("DELETE FROM body_measurement_entries WHERE id = :id")
+    suspend fun deleteById(id: Long)
+}
+
+@Dao
+interface BodyCompositionDao {
+    @Query("SELECT * FROM body_composition_snapshots ORDER BY measuredAt DESC, createdAt DESC")
+    fun getAllSnapshots(): Flow<List<BodyCompositionSnapshot>>
+
+    @Query("SELECT * FROM body_composition_snapshots ORDER BY measuredAt DESC, createdAt DESC")
+    suspend fun getAllSnapshotsSync(): List<BodyCompositionSnapshot>
+
+    @Query("SELECT * FROM body_composition_snapshots ORDER BY measuredAt DESC, createdAt DESC LIMIT 1")
+    fun getLatestSnapshot(): Flow<BodyCompositionSnapshot?>
+
+    @Query("SELECT * FROM body_composition_snapshots ORDER BY measuredAt DESC, createdAt DESC LIMIT 1")
+    suspend fun getLatestSnapshotSync(): BodyCompositionSnapshot?
+
+    @Query("SELECT * FROM body_composition_snapshots WHERE measuredAt >= :start AND measuredAt <= :end ORDER BY measuredAt ASC")
+    fun getSnapshotsBetween(start: Long, end: Long): Flow<List<BodyCompositionSnapshot>>
+
+    @Insert(onConflict = OnConflictStrategy.REPLACE)
+    suspend fun insert(snapshot: BodyCompositionSnapshot): Long
+
+    @Delete
+    suspend fun delete(snapshot: BodyCompositionSnapshot)
+
+    @Query("DELETE FROM body_composition_snapshots WHERE id = :id")
+    suspend fun deleteById(id: Long)
 }
 
 @Dao
@@ -142,6 +201,9 @@ interface TemplateDao {
 
     @Insert(onConflict = OnConflictStrategy.REPLACE)
     suspend fun insertTemplateExercises(list: List<TemplateExercise>)
+
+    @Query("DELETE FROM template_exercises WHERE id = :id")
+    suspend fun deleteTemplateExerciseById(id: Long)
 
     @Query("DELETE FROM template_exercises WHERE templateId = :templateId")
     suspend fun deleteExercisesForTemplate(templateId: String)
@@ -285,4 +347,11 @@ interface WorkoutSessionDao {
         ORDER BY ws.startTime DESC
     """)
     fun getCompletedSessionsForExercise(exerciseId: String): Flow<List<WorkoutSession>>
+
+    @Query("""
+        SELECT DISTINCT se.exerciseId FROM session_exercises se
+        INNER JOIN workout_sessions ws ON se.sessionId = ws.id
+        WHERE ws.isCompleted = 1 AND ws.startTime >= :start AND ws.startTime <= :end
+    """)
+    fun getCompletedExerciseIdsBetween(start: Long, end: Long): Flow<List<String>>
 }

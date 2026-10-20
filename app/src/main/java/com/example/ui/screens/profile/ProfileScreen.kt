@@ -24,9 +24,11 @@ import androidx.compose.foundation.shape.CircleShape
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.material.icons.Icons
+import androidx.compose.material.icons.filled.AccessibilityNew
 import androidx.compose.material.icons.filled.AddAPhoto
 import androidx.compose.material.icons.filled.Backup
 import androidx.compose.material.icons.filled.CalendarMonth
+import androidx.compose.material.icons.filled.ChevronRight
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Edit
 import androidx.compose.material.icons.filled.FitnessCenter
@@ -86,7 +88,8 @@ import java.util.Locale
 @Composable
 fun ProfileScreen(
     viewModel: ProfileViewModel,
-    onNavigateToBackupRestore: () -> Unit
+    onNavigateToBackupRestore: () -> Unit,
+    onNavigateToBodyMeasurements: () -> Unit
 ) {
     val state by viewModel.uiState.collectAsStateWithLifecycle()
     val profile = state.profile
@@ -187,7 +190,87 @@ fun ProfileScreen(
             }
         }
 
-        // 2. Personal Metrics (Age, Height, Preferred Unit)
+        // Featured Action: Body Measurements & Progress Screen
+        item {
+            GymCard(
+                backgroundColor = PrimaryCard,
+                modifier = Modifier
+                    .fillMaxWidth()
+                    .clickable { onNavigateToBodyMeasurements() }
+                    .testTag("body_measurements_entry_button")
+            ) {
+                Row(
+                    modifier = Modifier
+                        .fillMaxWidth()
+                        .padding(16.dp),
+                    verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.SpaceBetween
+                ) {
+                    Row(
+                        verticalAlignment = Alignment.CenterVertically,
+                        modifier = Modifier.weight(1f)
+                    ) {
+                        Box(
+                            modifier = Modifier
+                                .size(46.dp)
+                                .clip(RoundedCornerShape(12.dp))
+                                .background(PrimaryPurple.copy(alpha = 0.2f)),
+                            contentAlignment = Alignment.Center
+                        ) {
+                            Icon(
+                                imageVector = Icons.Default.AccessibilityNew,
+                                contentDescription = null,
+                                tint = PrimaryPurple,
+                                modifier = Modifier.size(24.dp)
+                            )
+                        }
+                        Spacer(modifier = Modifier.width(14.dp))
+                        Column {
+                            Row(verticalAlignment = Alignment.CenterVertically) {
+                                Text(
+                                    text = "Body Measurements",
+                                    style = MaterialTheme.typography.titleMedium.copy(
+                                        fontWeight = FontWeight.Bold,
+                                        color = PrimaryText
+                                    )
+                                )
+                                Spacer(modifier = Modifier.width(8.dp))
+                                Box(
+                                    modifier = Modifier
+                                        .clip(RoundedCornerShape(6.dp))
+                                        .background(PrimaryPurple)
+                                        .padding(horizontal = 6.dp, vertical = 2.dp)
+                                ) {
+                                    Text(
+                                        text = "NEW",
+                                        style = MaterialTheme.typography.labelSmall.copy(
+                                            color = PrimaryText,
+                                            fontWeight = FontWeight.Bold,
+                                            fontSize = 9.sp
+                                        )
+                                    )
+                                }
+                            }
+                            Spacer(modifier = Modifier.height(2.dp))
+                            Text(
+                                text = "Track figure overview, circumferences & progress trends",
+                                style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText),
+                                maxLines = 1
+                            )
+                        }
+                    }
+
+                    Icon(
+                        imageVector = Icons.Default.ChevronRight,
+                        contentDescription = "Open body measurements",
+                        tint = PrimaryPurple,
+                        modifier = Modifier.size(22.dp)
+                    )
+                }
+            }
+        }
+
+        // 2. Personal Metrics (Age, Height)
         item {
             Text(
                 text = "PERSONAL INFORMATION",
@@ -293,7 +376,7 @@ fun ProfileScreen(
             }
         }
 
-        // 3. Preferred Weight Unit Switcher (kg vs lb)
+        // 3. Weight Unit (Standardized to kg)
         item {
             GymCard(backgroundColor = PrimaryCard) {
                 Row(
@@ -305,56 +388,82 @@ fun ProfileScreen(
                 ) {
                     Column {
                         Text(
-                            text = "Preferred Weight Unit",
+                            text = "Weight Unit",
                             style = MaterialTheme.typography.titleMedium.copy(
                                 fontWeight = FontWeight.Bold,
                                 color = PrimaryText
                             )
                         )
                         Text(
-                            text = "Used across all exercises, sets, and progress charts",
+                            text = "Standardized to kg across all exercises and measurements",
                             style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText)
                         )
                     }
+                    Box(
+                        modifier = Modifier
+                            .clip(RoundedCornerShape(8.dp))
+                            .background(PrimaryPurple.copy(alpha = 0.2f))
+                            .padding(horizontal = 14.dp, vertical = 6.dp)
+                    ) {
+                        Text(
+                            text = "kg",
+                            style = MaterialTheme.typography.labelMedium.copy(
+                                fontWeight = FontWeight.Bold,
+                                color = PrimaryPurple
+                            )
+                        )
+                    }
+                }
+            }
+        }
+
+        // 3b. Body Measurement Reminder Interval Option (In-App notification interval)
+        item {
+            GymCard(backgroundColor = PrimaryCard) {
+                Column(modifier = Modifier.padding(16.dp)) {
+                    Text(
+                        text = "BODY MEASUREMENT REMINDER",
+                        style = MaterialTheme.typography.labelSmall.copy(
+                            color = PrimaryPurple,
+                            fontWeight = FontWeight.Bold,
+                            letterSpacing = 1.sp
+                        )
+                    )
+                    Spacer(modifier = Modifier.height(4.dp))
+                    Text(
+                        text = "How often the in-app reminder card appears on Home to update measurements",
+                        style = MaterialTheme.typography.bodySmall.copy(color = SecondaryText)
+                    )
+
+                    Spacer(modifier = Modifier.height(12.dp))
 
                     Row(
-                        modifier = Modifier
-                            .clip(RoundedCornerShape(10.dp))
-                            .background(SecondaryCard)
-                            .padding(3.dp)
+                        modifier = Modifier.fillMaxWidth(),
+                        horizontalArrangement = Arrangement.spacedBy(8.dp)
                     ) {
-                        val isKg = profile.preferredWeightUnit.equals("kg", ignoreCase = true)
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (isKg) PrimaryPurple else ElevatedSurface)
-                                .clickable { viewModel.updatePreferredWeightUnit("kg") }
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "kg",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (isKg) PrimaryText else SecondaryText
+                        listOf(
+                            1 to "1 Week",
+                            2 to "2 Weeks",
+                            4 to "4 Weeks"
+                        ).forEach { (weeks, label) ->
+                            val isSelected = profile.measurementReminderWeeks == weeks
+                            Box(
+                                modifier = Modifier
+                                    .weight(1f)
+                                    .clip(RoundedCornerShape(10.dp))
+                                    .background(if (isSelected) PrimaryPurple else ElevatedSurface)
+                                    .clickable { viewModel.updateMeasurementReminderWeeks(weeks) }
+                                    .padding(vertical = 10.dp),
+                                contentAlignment = Alignment.Center
+                            ) {
+                                Text(
+                                    text = label,
+                                    style = MaterialTheme.typography.labelMedium.copy(
+                                        fontWeight = if (isSelected) FontWeight.ExtraBold else FontWeight.Medium,
+                                        color = if (isSelected) PrimaryText else SecondaryText
+                                    )
                                 )
-                            )
-                        }
-
-                        Box(
-                            modifier = Modifier
-                                .clip(RoundedCornerShape(8.dp))
-                                .background(if (!isKg) PrimaryPurple else ElevatedSurface)
-                                .clickable { viewModel.updatePreferredWeightUnit("lb") }
-                                .padding(horizontal = 14.dp, vertical = 6.dp)
-                        ) {
-                            Text(
-                                text = "lb",
-                                style = MaterialTheme.typography.labelMedium.copy(
-                                    fontWeight = FontWeight.Bold,
-                                    color = if (!isKg) PrimaryText else SecondaryText
-                                )
-                            )
+                            }
                         }
                     }
                 }

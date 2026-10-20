@@ -7,6 +7,7 @@ import com.example.data.model.Exercise
 import com.example.data.model.ExercisePRSummary
 import com.example.data.model.ExercisePerformanceRecord
 import com.example.data.model.MuscleGroup
+import com.example.data.model.QuickSetInput
 import com.example.data.repository.GymRepository
 import kotlinx.coroutines.flow.MutableStateFlow
 import kotlinx.coroutines.flow.SharingStarted
@@ -127,6 +128,18 @@ class ExercisesViewModel(
         viewModelScope.launch {
             repository.setExerciseArchived(exerciseId, true)
             onArchived()
+        }
+    }
+
+    fun logExerciseWorkout(
+        exerciseId: String,
+        sessionName: String,
+        setsInput: List<QuickSetInput>,
+        onSaved: () -> Unit
+    ) {
+        viewModelScope.launch {
+            repository.logCompletedExerciseSession(exerciseId, sessionName, setsInput)
+            onSaved()
         }
     }
 

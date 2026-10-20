@@ -17,6 +17,7 @@ import com.example.data.repository.GymRepository
 import com.example.data.storage.ImageStorageManager
 import kotlinx.coroutines.flow.first
 import kotlinx.coroutines.runBlocking
+import com.example.util.BodyMath
 import org.junit.After
 import org.junit.Assert.assertEquals
 import org.junit.Assert.assertNotNull
@@ -179,5 +180,104 @@ class GymTrackerComprehensiveTest {
 
         val restoredProfile = repository.userProfile.first()
         assertEquals("Champion Lifter", restoredProfile!!.name)
+    }
+
+    @Test
+    fun testEpley1RMEdgeCases() {
+        // 1 repetition must equal exact lifted weight
+        assertEquals(120.0, BodyMath.calculateEpley1RM(120.0, 1), 0.001)
+
+        // Multiple repetitions: 100 kg for 10 reps = 100 * (1 + 10 / 30) = 133.33 kg
+        assertEquals(133.33, BodyMath.calculateEpley1RM(100.0, 10), 0.01)
+
+        // Non-positive or invalid weight/reps should return 0.0
+        assertEquals(0.0, BodyMath.calculateEpley1RM(0.0, 10), 0.001)
+        assertEquals(0.0, BodyMath.calculateEpley1RM(-50.0, 5), 0.001)
+        assertEquals(0.0, BodyMath.calculateEpley1RM(100.0, 0), 0.001)
+        assertEquals(0.0, BodyMath.calculateEpley1RM(100.0, -2), 0.001)
+    }
+
+    @Test
+    fun testBmiCalculationAndAgeRestrictions() {
+        // 75 kg, 178 cm -> 75 / (1.78^2) = 23.67 -> rounded 23.7
+        val bmi = BodyMath.calculateBmi(75.0, 178.0)
+        assertNotNull(bmi)
+        assertEquals(23.7, bmi!!, 0.05)
+
+        // Adult >= 20 gets WHO adult category
+        assertEquals("Healthy weight", BodyMath.getBmiCategory(23.7, 25))
+        assertEquals("Underweight", BodyMath.getBmiCategory(17.5, 30))
+        assertEquals("Overweight", BodyMath.getBmiCategory(27.5, 40))
+        assertEquals("Obesity range", BodyMath.getBmiCategory(32.0, 35))
+
+        // Minor under 20 returns null (no adult categories applied)
+        assertNull(BodyMath.getBmiCategory(23.7, 18))
+        assertNull(BodyMath.getBmiCategory(23.7, null))
+    }
+
+    @Test
+    fun testNavyCircumferenceBodyFatFormulas() {
+        // Male reference case: height 178 cm, waist 85 cm, neck 38 cm
+        val maleBf = BodyMath.calculateNavyBodyFatPercentage(
+            heightCm = 178.0,
+            waistCm = 85.0,
+            neckCm = 38.0,
+            hipCm = null,
+            sex = "male"
+        )
+        assertNotNull(maleBf)
+        assertTrue(maleBf!! in 10.0..25.0)
+
+        // Female reference case: height 165 cm, waist 72 cm, neck 32 cm, hip 96 cm
+        val femaleBf = BodyMath.calculateNavyBodyFatPercentage(
+            heightCm = 165.0,
+            waistCm = 72.0,
+            neckCm = 32.0,
+            hipCm = 96.0,
+            sex = "female"
+        )
+        assertNotNull(femaleBf)
+        assertTrue(femaleBf!! in 18.0..35.0)
+
+        // Female missing hip measurement must return null (never fabricate)
+        val femaleMissingHip = BodyMath.calculateNavyBodyFatPercentage(
+            heightCm = 165.0,
+            waistCm = 72.0,
+            neckCm = 32.0,
+            hipCm = null,
+            sex = "female"
+        )
+        assertNull(femaleMissingHip)
+
+        // Invalid geometry (waist <= neck) must return null
+        val invalidMale = BodyMath.calculateNavyBodyFatPercentage(
+            heightCm = 178.0,
+            waistCm = 35.0,
+            neckCm = 38.0,
+            hipCm = null,
+            sex = "male"
+        )
+        assertNull(invalidMale)
+    }
+
+    @Test
+    fun testFatFreeMassCalculation() {
+        // 80 kg with 15% body fat -> 80 * 0.85 = 68.0 kg fat-free mass
+        val ffm = BodyMath.calculateFatFreeMass(80.0, 15.0)
+        assertNotNull(ffm)
+        assertEquals(68.0, ffm!!, 0.05)
+    }
+
+    @Test
+    fun testCalendarToDatabaseDayMapping() {
+        val calSunday = Calendar.getInstance().apply { set(Calendar.DAY_OF_WEEK, Calendar.SUNDAY) }
+        val calMonday = Calendar.getInstance().apply { set(Calendar.DAY_OF_WEEK, Calendar.MONDAY) }
+        val calTuesday = Calendar.getInstance().apply { set(Calendar.DAY_OF_WEEK, Calendar.TUESDAY) }
+        val calSaturday = Calendar.getInstance().apply { set(Calendar.DAY_OF_WEEK, Calendar.SATURDAY) }
+
+        assertEquals(0, BodyMath.getDatabaseDayIndex(calSunday))
+        assertEquals(1, BodyMath.getDatabaseDayIndex(calMonday))
+        assertEquals(2, BodyMath.getDatabaseDayIndex(calTuesday))
+        assertEquals(6, BodyMath.getDatabaseDayIndex(calSaturday))
     }
 }
