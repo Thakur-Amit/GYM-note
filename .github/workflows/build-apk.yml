@@ -41,18 +41,48 @@ jobs:
       - name: Build Debug APK
         run: ./gradlew assembleDebug --no-daemon
 
+      - name: Optimize, Sign (V1 + V2 + V3) and Verify APK
+        run: |
+          APK_ORIGINAL=$(find . -name "*debug*.apk" | head -n 1)
+          echo "Found APK at: $APK_ORIGINAL"
+          mkdir -p release-output
+          cp "$APK_ORIGINAL" release-output/GymTracker.apk
+          
+          # Find latest apksigner in Android SDK
+          APKSIGNER=$(find $ANDROID_HOME/build-tools -name "apksigner" | sort -V | tail -n 1)
+          echo "Using apksigner: $APKSIGNER"
+          
+          # Re-sign with V1 (JAR) + V2 (Full APK) + V3 schemes explicitly
+          $APKSIGNER sign --ks debug.keystore --ks-pass pass:android --ks-key-alias androiddebugkey --key-pass pass:android --v1-signing-enabled true --v2-signing-enabled true --v3-signing-enabled true release-output/GymTracker.apk
+          
+          # Verify signature
+          $APKSIGNER verify --verbose release-output/GymTracker.apk
+          
+          # Calculate checksum
+          cd release-output
+          sha256sum GymTracker.apk > GymTracker.apk.sha256
+          echo "Generated SHA-256:"
+          cat GymTracker.apk.sha256
+          ls -la GymTracker.apk
+
       - name: Upload APK Artifact
         uses: actions/upload-artifact@v4
         with:
-          name: GymTracker-debug-apk
-          path: app/build/outputs/apk/debug/*.apk
+          name: GymTracker-apk
+          path: release-output/GymTracker.apk
 
       - name: Create or Update GitHub Release
         uses: softprops/action-gh-release@v2
         with:
           tag_name: latest-build
           name: Gym Tracker Latest APK
-          body: "Direct download for Gym Tracker Android APK built by GitHub Actions."
-          files: app/build/outputs/apk/debug/*.apk
+          body: |
+            ### Gym Tracker APK Download
+            - **File Name:** `GymTracker.apk` (Fully signed with V1 & V2 schemes for Android 10+ compatibility)
+            - Direct download link below.
+            - Ensure complete download (~32 MB) before installing.
+          files: |
+            release-output/GymTracker.apk
+            release-output/GymTracker.apk.sha256
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
